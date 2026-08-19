@@ -1,6 +1,7 @@
 import { Client, Collection, REST, Routes } from 'discord.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 import { Command } from './types';
 
 declare module 'discord.js' {
@@ -24,7 +25,8 @@ export async function loadCommands(client: Client) {
 
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
-        const commandModule = await import(filePath);
+        // Convert to file:// URL for ESM compatibility on Windows
+        const commandModule = await import(pathToFileURL(filePath).href);
         const command: Command = commandModule.default;
 
         if (command && 'data' in command && 'execute' in command) {

@@ -1,6 +1,7 @@
 import { Client } from 'discord.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 import { DiscordEvent } from './types';
 
 export async function loadEvents(client: Client) {
@@ -16,7 +17,8 @@ export async function loadEvents(client: Client) {
 
     for (const file of eventFiles) {
         const filePath = path.join(eventsPath, file);
-        const eventModule = await import(filePath);
+        // Convert to file:// URL for ESM compatibility on Windows
+        const eventModule = await import(pathToFileURL(filePath).href);
         const event: DiscordEvent<any> = eventModule.default;
 
         if (event && event.name && event.execute) {
