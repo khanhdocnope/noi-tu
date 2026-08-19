@@ -11,6 +11,7 @@ import {
     Weather,
     Season,
     RegionStatus,
+    GlobalEventStatus,
     WorldStateUpdate,
 } from './WorldStateTypes';
 import { IWorldStateRepository } from './IWorldStateRepository';
@@ -130,16 +131,23 @@ export class WorldStateService {
         const newProgress = Math.min(event.currentProgress + amount, event.requiredProgress);
         const isCompleted = newProgress >= event.requiredProgress;
 
+        // Cập nhật progress (và status) trước
+        const completedEvent = {
+            ...event,
+            currentProgress: newProgress,
+            // Fix: dùng enum GlobalEventStatus thay vì raw string
+            status: isCompleted ? GlobalEventStatus.Completed : GlobalEventStatus.Active,
+        };
+
+        // Fix: nếu event hoàn thành, xóa activeGlobalEvent khỏi world
+        // để tránh emit null reference và mở đường cho event mới
         const updated = await this.updateWorld(guildId, {
-            activeGlobalEvent: {
-                ...event,
-                currentProgress: newProgress,
-                status: isCompleted ? 'completed' : 'active',
-            },
+            activeGlobalEvent: isCompleted ? null : completedEvent,
         });
 
         if (isCompleted) {
-            this.events.emit(WORLD_EVENTS.GLOBAL_EVENT_COMPLETED, { guildId, event: updated.activeGlobalEvent });
+            // Emit bản snapshot của event đã hoàn thành (không phải null)
+            this.events.emit(WORLD_EVENTS.GLOBAL_EVENT_COMPLETED, { guildId, event: completedEvent });
             console.log(`[ECHO World] Guild ${guildId} — Global event "${event.name}" completed!`);
         }
 
