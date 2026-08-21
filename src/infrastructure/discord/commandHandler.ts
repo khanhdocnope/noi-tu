@@ -69,8 +69,4 @@ export async function loadCommands(client: Client) {
             console.error('[ECHO Handler] Error syncing commands:', error);
         }
     }
-        } catch (error) {
-            console.error('[ECHO Handler] Error registering commands:', error);
-        }
-    }
 }
