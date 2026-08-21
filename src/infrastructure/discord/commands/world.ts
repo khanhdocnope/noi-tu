@@ -8,6 +8,7 @@ import {
     ChatInputCommandInteraction,
     EmbedBuilder,
     Colors,
+    MessageFlags,
 } from 'discord.js';
 import { Command } from '../types';
 import { getContainer } from '../../../bootstrap';
@@ -44,7 +45,7 @@ const command: Command = {
 
     async execute(interaction: ChatInputCommandInteraction) {
         if (!interaction.guildId) {
-            await interaction.reply({ content: 'Lệnh này chỉ dùng được trong server!', ephemeral: true });
+            await interaction.reply({ content: 'Lệnh này chỉ dùng được trong server!', flags: MessageFlags.Ephemeral });
             return;
         }
 

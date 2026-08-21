@@ -6,6 +6,7 @@
 
 import { PlayerState, PlayerStateUpdate } from '../../core/player/PlayerStateTypes';
 import { IPlayerRepository } from '../../core/player/IPlayerRepository';
+import { DEFAULT_PLAYER_COMBAT_STATS } from '../../core/combat/CombatTypes';
 
 export class InMemoryPlayerRepository implements IPlayerRepository {
     private store: Map<string, PlayerState> = new Map();
@@ -20,14 +21,15 @@ export class InMemoryPlayerRepository implements IPlayerRepository {
             userId,
             level: 1,
             xp: 0,
-            currency: 100, // Tiền tệ khởi đầu cho MVP
+            currency: 100,
             streak: {
                 current: 0,
                 max: 0,
                 lastActiveAt: null,
-                protectionActive: true, // Tặng một lượt bảo vệ streak khi tạo acc
+                protectionActive: true,
             },
             currentState: 'idle',
+            combat: { ...DEFAULT_PLAYER_COMBAT_STATS },
             inventory: [],
             relationships: [],
             discoveries: [],

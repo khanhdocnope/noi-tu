@@ -2,7 +2,8 @@ import { Client, GatewayIntentBits } from 'discord.js';
 import * as dotenv from 'dotenv';
 import { loadEvents } from './infrastructure/discord/eventHandler';
 import { loadCommands } from './infrastructure/discord/commandHandler';
-import { bootstrapApp } from './bootstrap';
+import { bootstrapApp, getContainer } from './bootstrap';
+import { notificationService } from './infrastructure/notification/NotificationService';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -14,15 +15,13 @@ if (!token) {
     process.exit(1);
 }
 
-// Khởi tạo tất cả services (WorldState, v.v.) trước khi connect Discord
-bootstrapApp();
-
 // Initialize the Discord Client
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
+        GatewayIntentBits.DirectMessages,
     ],
 });
 
@@ -34,8 +33,18 @@ process.on('unhandledRejection', (error) => {
     console.error('[ECHO Core] Unhandled promise rejection:', error);
 });
 
-// Connect to the Discord Gateway
-client.login(token).then(() => {
+// Bootstrap services then connect to Discord
+bootstrapApp().then(() => {
+    return client.login(token);
+}).then(() => {
+    // Set client for notifications (level-up DM, welcome DM, etc.)
+    notificationService.setClient(client);
+    // Set client for scheduler (auto-announce world state)
+    const { schedulerService } = getContainer();
+    schedulerService.setClient(client);
     loadCommands(client);
+}).catch((error) => {
+    console.error('[ECHO Core] Failed to start:', error);
+    process.exit(1);
 });
 

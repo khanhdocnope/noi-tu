@@ -30,6 +30,20 @@ export function runMigrations(db: Database.Database): void {
         );
 
         -- ================================================================
+        -- Table: guild_schedules
+        -- Lưu lịch advanceDay() cho từng server.
+        -- Mỗi guild có timezone riêng, chạy lúc 00:00 local.
+        -- ================================================================
+        CREATE TABLE IF NOT EXISTS guild_schedules (
+            guild_id        TEXT        PRIMARY KEY,
+            timezone        TEXT        NOT NULL DEFAULT 'UTC',
+            schedule_time   TEXT        NOT NULL DEFAULT '00:00',
+            enabled         INTEGER     NOT NULL DEFAULT 1,
+            last_advanced   TEXT,
+            created_at      TEXT        NOT NULL
+        );
+
+        -- ================================================================
         -- Table: player_states
         -- Lưu trạng thái nhân vật của từng người chơi.
         -- ================================================================
@@ -47,10 +61,36 @@ export function runMigrations(db: Database.Database): void {
             relationships       TEXT        NOT NULL DEFAULT '[]',
             discoveries         TEXT        NOT NULL DEFAULT '[]',
             active_opportunity  TEXT,
+            daily_session       TEXT,
             last_updated_at     TEXT        NOT NULL,
             created_at          TEXT        NOT NULL
         );
     `);
+
+    // ── ALTER TABLE: Add missing columns ──────────────────────────
+    // These will fail silently if columns already exist
+    const alterStatements = [
+        `ALTER TABLE player_states ADD COLUMN daily_session TEXT`,
+        `ALTER TABLE guild_schedules ADD COLUMN world_speed INTEGER NOT NULL DEFAULT 6`,
+        `ALTER TABLE guild_schedules ADD COLUMN world_channel_id TEXT`,
+        // Combat stats
+        `ALTER TABLE player_states ADD COLUMN combat_hp INTEGER NOT NULL DEFAULT 100`,
+        `ALTER TABLE player_states ADD COLUMN combat_max_hp INTEGER NOT NULL DEFAULT 100`,
+        `ALTER TABLE player_states ADD COLUMN combat_attack INTEGER NOT NULL DEFAULT 10`,
+        `ALTER TABLE player_states ADD COLUMN combat_defense INTEGER NOT NULL DEFAULT 5`,
+        `ALTER TABLE player_states ADD COLUMN combat_speed INTEGER NOT NULL DEFAULT 10`,
+    ];
+
+    for (const stmt of alterStatements) {
+        try {
+            db.exec(stmt);
+        } catch (e: any) {
+            // Column already exists - ignore
+            if (!e.message?.includes('duplicate column')) {
+                console.error('[ECHO DB] Migration error:', e.message);
+            }
+        }
+    }
 
     console.log('[ECHO DB] Migrations complete.');
 }

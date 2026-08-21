@@ -40,22 +40,35 @@ export async function loadCommands(client: Client) {
     if (process.env.DISCORD_TOKEN && client.user) {
         const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
         try {
-            console.log(`[ECHO Handler] Started refreshing ${commandData.length} application (/) commands.`);
-            
+            const appId = client.user.id;
             const guildId = process.env.guildId;
+
+            // Step 1: Clear ALL old commands (both scopes)
+            console.log('[ECHO Handler] Clearing old commands...');
+            await rest.put(Routes.applicationCommands(appId), { body: [] });
+            if (guildId) {
+                await rest.put(Routes.applicationGuildCommands(appId, guildId), { body: [] });
+            }
+
+            // Step 2: Register current commands
+            console.log(`[ECHO Handler] Registering ${commandData.length} commands...`);
             if (guildId) {
                 await rest.put(
-                    Routes.applicationGuildCommands(client.user.id, guildId),
+                    Routes.applicationGuildCommands(appId, guildId),
                     { body: commandData },
                 );
-                console.log(`[ECHO Handler] Successfully reloaded guild commands for Server ID: ${guildId}.`);
+                console.log(`[ECHO Handler] Guild commands synced to: ${guildId}`);
             } else {
                 await rest.put(
-                    Routes.applicationCommands(client.user.id),
+                    Routes.applicationCommands(appId),
                     { body: commandData },
                 );
-                console.log(`[ECHO Handler] Successfully reloaded global commands.`);
+                console.log('[ECHO Handler] Global commands synced.');
             }
+        } catch (error) {
+            console.error('[ECHO Handler] Error syncing commands:', error);
+        }
+    }
         } catch (error) {
             console.error('[ECHO Handler] Error registering commands:', error);
         }

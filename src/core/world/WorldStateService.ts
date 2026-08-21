@@ -22,6 +22,7 @@ export const WORLD_EVENTS = {
     WORLD_CREATED:      'world:created',
     WORLD_UPDATED:      'world:updated',
     WEATHER_CHANGED:    'world:weather_changed',
+    SEASON_CHANGED:     'world:season_changed',
     GLOBAL_EVENT_STARTED: 'world:global_event_started',
     GLOBAL_EVENT_COMPLETED: 'world:global_event_completed',
     DAY_ADVANCED:       'world:day_advanced',
@@ -113,6 +114,33 @@ export class WorldStateService {
         }
 
         console.log(`[ECHO World] Guild ${guildId} — Day ${updated.dayNumber} begins. Weather: ${newWeather}`);
+        return updated;
+    }
+
+    /**
+     * Đặt season mới cho world.
+     * Được gọi bởi SchedulerService khi season thay đổi.
+     * Spec ref: Section 10 (Progression - World)
+     */
+    async setSeason(guildId: string, newSeason: Season): Promise<ServerWorldState> {
+        const world = await this.getWorld(guildId);
+
+        if (world.season === newSeason) {
+            return world;  // Không thay đổi
+        }
+
+        const updated = await this.updateWorld(guildId, {
+            season: newSeason,
+        });
+
+        this.events.emit(WORLD_EVENTS.SEASON_CHANGED, {
+            guildId,
+            from: world.season,
+            to: newSeason,
+            dayNumber: updated.dayNumber,
+        });
+
+        console.log(`[ECHO World] Guild ${guildId} — Season changed: ${world.season} → ${newSeason}`);
         return updated;
     }
 

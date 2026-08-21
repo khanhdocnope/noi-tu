@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "tsx src/index.ts",
+    "sync": "tsx src/scripts/sync-commands.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -25,6 +26,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.2.0",
+    "@types/node-cron": "^3.0.11",
     "discord.js": "^14.27.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.12",
@@ -32,6 +34,7 @@
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "node-cron": "^3.0.3"
   }
 }
