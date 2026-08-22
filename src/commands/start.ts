@@ -109,8 +109,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       { name: 'Rarity', value: rarityMap[species.rarity] ?? 'Common', inline: true },
     )
     .setImage(artworkUrl)
-    .setColor('#FFD700')
-    .setFooter({ text: 'Chăm sóc pet thật tốt nhé!' });
+    .setColor('#FFD700');
 
   await interaction.editReply({ embeds: [embed] });
 }

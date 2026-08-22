@@ -86,8 +86,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         inline: true,
       },
     )
-    .setColor('#FFD700')
-    .setTimestamp();
+    .setColor('#FFD700');
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
