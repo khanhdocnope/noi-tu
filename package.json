@@ -1,40 +1,28 @@
 {
-  "name": "bot-dis",
+  "name": "nuoi-mot-thu",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "directories": {
-    "doc": "doc"
-  },
+  "description": "Discord bot - Nuôi một thứ",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "tsx src/index.ts",
-    "sync": "tsx src/scripts/sync-commands.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/khanhdocnope/noi-tu.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/khanhdocnope/noi-tu/issues"
-  },
-  "homepage": "https://github.com/khanhdocnope/noi-tu#readme",
-  "devDependencies": {
-    "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^26.2.0",
-    "@types/node-cron": "^3.0.11",
-    "discord.js": "^14.27.0",
-    "ts-node": "^10.9.2",
-    "tsx": "^4.23.12",
-    "typescript": "^7.0.2"
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest"
   },
   "dependencies": {
-    "better-sqlite3": "^13.0.3",
-    "dotenv": "^17.4.2",
-    "node-cron": "^3.0.3"
+    "@supabase/supabase-js": "^2.45.0",
+    "discord.js": "^14.16.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
