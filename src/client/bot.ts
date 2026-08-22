@@ -22,12 +22,6 @@ export function createBotClient(): BotClient {
 
 export async function startBot(): Promise<BotClient> {
   const client = createBotClient();
-
-  client.once('ready', () => {
-    console.log(`✅ Logged in as ${client.user?.tag}`);
-  });
-
   await client.login(env.DISCORD_TOKEN);
-
   return client;
 }

@@ -6,19 +6,22 @@ type EventName = keyof ClientEvents;
 interface Event<K extends EventName = EventName> {
   name: K;
   once?: boolean;
-  execute: (...args: ClientEvents[K]) => Promise<void>;
+  execute: (...args: ClientEvents[K]) => Promise<void> | void;
 }
 
 export function loadEvents(client: BotClient, events: Event[]): void {
   for (const event of events) {
+    const handler = (...args: unknown[]) => {
+      const result = (event.execute as (...a: unknown[]) => Promise<void> | void)(...args);
+      if (result && typeof result.catch === 'function') {
+        result.catch(console.error);
+      }
+    };
+
     if (event.once) {
-      client.once(event.name, (...args) => {
-        (event.execute as (...a: unknown[]) => Promise<void>)(...args).catch(console.error);
-      });
+      client.once(event.name, handler);
     } else {
-      client.on(event.name, (...args) => {
-        (event.execute as (...a: unknown[]) => Promise<void>)(...args).catch(console.error);
-      });
+      client.on(event.name, handler);
     }
   }
 
@@ -30,7 +33,7 @@ export function createReadyEvent(): Event<Events.ClientReady> {
     name: Events.ClientReady,
     once: true,
     execute(client) {
-      console.log(`✅ Ready! Logged in as ${client.user.tag}`);
+      console.log(`✅ Ready! Logged in as ${client.user?.tag}`);
     },
   };
 }

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🐾 Bot Admin - Nuôi Một Thứ</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
+    
+    .header { background: #16213e; padding: 1rem 2rem; border-bottom: 1px solid #333; }
+    .header h1 { font-size: 1.5rem; }
+    
+    .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+    
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .tab { padding: 0.75rem 1.5rem; background: #16213e; border: 1px solid #333; border-radius: 8px; cursor: pointer; color: #eee; }
+    .tab:hover { background: #1f3460; }
+    .tab.active { background: #e94560; border-color: #e94560; }
+    
+    .panel { display: none; background: #16213e; border-radius: 12px; padding: 1.5rem; border: 1px solid #333; }
+    .panel.active { display: block; }
+    
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #333; }
+    th { color: #e94560; font-weight: 600; }
+    tr:hover { background: #1f3460; }
+    
+    .btn { padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+    .btn-primary { background: #e94560; color: white; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn:hover { opacity: 0.8; }
+    
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; margin-bottom: 0.25rem; color: #aaa; }
+    .form-group input, .form-group select { width: 100%; padding: 0.5rem; background: #1a1a2e; border: 1px solid #333; border-radius: 6px; color: #eee; }
+    
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card { background: #1a1a2e; padding: 1rem; border-radius: 8px; text-align: center; }
+    .stat-card .value { font-size: 2rem; font-weight: bold; color: #e94560; }
+    .stat-card .label { color: #aaa; margin-top: 0.25rem; }
+    
+    .artwork-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem; }
+    .artwork-card { background: #1a1a2e; border-radius: 8px; padding: 1rem; text-align: center; }
+    .artwork-card img { width: 100%; border-radius: 8px; }
+    .artwork-card .level { margin-top: 0.5rem; color: #e94560; }
+    
+    .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center; }
+    .modal.active { display: flex; }
+    .modal-content { background: #16213e; padding: 2rem; border-radius: 12px; max-width: 500px; width: 90%; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🐾 Bot Admin - Nuôi Một Thứ</h1>
+  </div>
+  
+  <div class="container">
+    <div class="stats" id="stats"></div>
+    
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('pets')">🐱 Pets</div>
+      <div class="tab" onclick="switchTab('species')">🧬 Species</div>
+      <div class="tab" onclick="switchTab('users')">👥 Users</div>
+      <div class="tab" onclick="switchTab('artwork')">🎨 Artwork</div>
+    </div>
+    
+    <div class="panel active" id="pets-panel">
+      <h2>Pets</h2>
+      <table>
+        <thead><tr><th>User</th><th>Species</th><th>Level</th><th>XP</th><th>Health</th><th>Hunger</th><th>Actions</th></tr></thead>
+        <tbody id="pets-table"></tbody>
+      </table>
+    </div>
+    
+    <div class="panel" id="species-panel">
+      <h2>Species</h2>
+      <button class="btn btn-primary" onclick="showAddSpecies()">+ Add Species</button>
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Rarity</th><th>Weight</th><th>Actions</th></tr></thead>
+        <tbody id="species-table"></tbody>
+      </table>
+    </div>
+    
+    <div class="panel" id="users-panel">
+      <h2>Users</h2>
+      <table>
+        <thead><tr><th>User ID</th><th>Coin</th><th>Created</th><th>Actions</th></tr></thead>
+        <tbody id="users-table"></tbody>
+      </table>
+    </div>
+    
+    <div class="panel" id="artwork-panel">
+      <h2>Artwork</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem">
+        <div>
+          <h3 style="margin-bottom:1rem">Upload New Artwork</h3>
+          <div class="form-group">
+            <label>Species</label>
+            <select id="upload-species"></select>
+          </div>
+          <div class="form-group">
+            <label>Level</label>
+            <select id="upload-level">
+              <option value="1">Lv.1</option>
+              <option value="5">Lv.5</option>
+              <option value="10">Lv.10</option>
+              <option value="15">Lv.15</option>
+              <option value="20">Lv.20</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Image File (PNG/JPG)</label>
+            <input type="file" id="upload-file" accept="image/png,image/jpeg,image/webp" onchange="previewUpload()">
+          </div>
+          <div id="upload-preview" style="margin:1rem 0;text-align:center"></div>
+          <button class="btn btn-primary" onclick="uploadArtwork()" id="upload-btn">Upload to Hugging Face</button>
+          <div id="upload-status" style="margin-top:0.5rem"></div>
+        </div>
+        <div>
+          <h3 style="margin-bottom:1rem">Current Artworks</h3>
+          <div class="form-group">
+            <label>Species</label>
+            <select id="artwork-species" onchange="loadArtwork()"></select>
+          </div>
+          <div class="artwork-grid" id="artwork-grid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="modal" id="species-modal">
+    <div class="modal-content">
+      <h3>Add Species</h3>
+      <div class="form-group"><label>ID</label><input id="sp-id"></div>
+      <div class="form-group"><label>Name</label><input id="sp-name"></div>
+      <div class="form-group"><label>Description</label><input id="sp-desc"></div>
+      <div class="form-group"><label>Rarity</label>
+        <select id="sp-rarity"><option>common</option><option>uncommon</option><option>rare</option><option>epic</option><option>legendary</option></select>
+      </div>
+      <div class="form-group"><label>Spawn Weight</label><input id="sp-weight" type="number" value="50"></div>
+      <div style="display:flex;gap:0.5rem;margin-top:1rem">
+        <button class="btn btn-primary" onclick="addSpecies()">Save</button>
+        <button class="btn" onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api';
+    
+    async function fetchJSON(url) {
+      const res = await fetch(url);
+      return res.json();
+    }
+    
+    function switchTab(name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById(name + '-panel').classList.add('active');
+    }
+    
+    async function loadStats() {
+      const [pets, users] = await Promise.all([fetchJSON(API + '/pets'), fetchJSON(API + '/users')]);
+      document.getElementById('stats').innerHTML = `
+        <div class="stat-card"><div class="value">${pets.length || 0}</div><div class="label">Total Pets</div></div>
+        <div class="stat-card"><div class="value">${users.length || 0}</div><div class="label">Total Users</div></div>
+        <div class="stat-card"><div class="value">${pets.filter(p => p.level >= 10).length || 0}</div><div class="label">Lv.10+ Pets</div></div>
+      `;
+    }
+    
+    async function loadPets() {
+      const pets = await fetchJSON(API + '/pets');
+      document.getElementById('pets-table').innerHTML = pets.map(p => `
+        <tr>
+          <td>${p.user_id}</td>
+          <td>${p.species}</td>
+          <td>${p.level}</td>
+          <td>${p.xp}</td>
+          <td>${p.health}</td>
+          <td>${p.hunger}</td>
+          <td><button class="btn btn-danger" onclick="deletePet('${p.user_id}')">Delete</button></td>
+        </tr>
+      `).join('');
+    }
+    
+    async function loadSpecies() {
+      const species = await fetchJSON(API + '/species');
+      document.getElementById('species-table').innerHTML = species.map(s => `
+        <tr>
+          <td>${s.id}</td>
+          <td>${s.name}</td>
+          <td>${s.rarity}</td>
+          <td>${s.spawn_weight}</td>
+          <td><button class="btn btn-danger" onclick="deleteSpecies('${s.id}')">Delete</button></td>
+        </tr>
+      `).join('');
+    }
+    
+    async function loadUsers() {
+      const users = await fetchJSON(API + '/users');
+      document.getElementById('users-table').innerHTML = users.map(u => `
+        <tr>
+          <td>${u.user_id}</td>
+          <td>${u.coin}</td>
+          <td>${new Date(u.created_at).toLocaleDateString()}</td>
+          <td><button class="btn" onclick="viewUser('${u.user_id}')">View</button></td>
+        </tr>
+      `).join('');
+    }
+    
+    async function loadArtwork() {
+      const species = document.getElementById('artwork-species').value;
+      if (!species) return;
+      const data = await fetchJSON(API + '/upload/artwork/' + species);
+      document.getElementById('artwork-grid').innerHTML = data.artworks.map(a => `
+        <div class="artwork-card">
+          <img src="${a.url}" alt="${species} Lv.${a.level}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23333%22 width=%22100%22 height=%22100%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 fill=%22%23666%22 font-size=%2214%22>No Image</text></svg>'">
+          <div class="level">Lv.${a.level}</div>
+        </div>
+      `).join('');
+    }
+    
+    async function loadSpeciesOptions() {
+      const species = await fetchJSON(API + '/species');
+      const select = document.getElementById('artwork-species');
+      const uploadSelect = document.getElementById('upload-species');
+      select.innerHTML = species.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+      uploadSelect.innerHTML = species.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+      loadArtwork();
+    }
+    
+    function showAddSpecies() { document.getElementById('species-modal').classList.add('active'); }
+    function closeModal() { document.getElementById('species-modal').classList.remove('active'); }
+    
+    async function addSpecies() {
+      await fetch(API + '/species', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: document.getElementById('sp-id').value,
+          name: document.getElementById('sp-name').value,
+          description: document.getElementById('sp-desc').value,
+          rarity: document.getElementById('sp-rarity').value,
+          spawn_weight: parseInt(document.getElementById('sp-weight').value),
+          base_stats: { health: 100, hunger: 100, energy: 100, mood: 50 }
+        })
+      });
+      closeModal();
+      loadSpecies();
+    }
+    
+    async function deletePet(userId) {
+      if (!confirm('Delete this pet?')) return;
+      await fetch(API + '/pets/' + userId, { method: 'DELETE' });
+      loadPets(); loadStats();
+    }
+    
+    async function deleteSpecies(id) {
+      if (!confirm('Delete this species?')) return;
+      await fetch(API + '/species/' + id, { method: 'DELETE' });
+      loadSpecies();
+    }
+    
+    async function viewUser(userId) {
+      const user = await fetchJSON(API + '/users/' + userId);
+      alert(JSON.stringify(user, null, 2));
+    }
+    
+    function previewUpload() {
+      const file = document.getElementById('upload-file').files[0];
+      const preview = document.getElementById('upload-preview');
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          preview.innerHTML = `<img src="${e.target.result}" style="max-width:200px;border-radius:8px">`;
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+    
+    async function uploadArtwork() {
+      const species = document.getElementById('upload-species').value;
+      const level = document.getElementById('upload-level').value;
+      const file = document.getElementById('upload-file').files[0];
+      const status = document.getElementById('upload-status');
+      const btn = document.getElementById('upload-btn');
+      
+      if (!file) {
+        status.innerHTML = '<span style="color:red">Please select a file!</span>';
+        return;
+      }
+      
+      btn.disabled = true;
+      btn.textContent = 'Uploading...';
+      status.innerHTML = '<span style="color:yellow">Uploading to Hugging Face...</span>';
+      
+      const formData = new FormData();
+      formData.append('species', species);
+      formData.append('level', level);
+      formData.append('file', file);
+      
+      try {
+        const res = await fetch(API + '/upload/artwork', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          status.innerHTML = `<span style="color:green">✅ Uploaded! <a href="${data.url}" target="_blank" style="color:#4fc3f7">${data.path}</a></span>`;
+          loadArtwork();
+        } else {
+          status.innerHTML = `<span style="color:red">❌ ${data.error}</span>`;
+        }
+      } catch (err) {
+        status.innerHTML = `<span style="color:red">❌ Network error</span>`;
+      }
+      
+      btn.disabled = false;
+      btn.textContent = 'Upload to Hugging Face';
+    }
+    
+    loadStats(); loadPets(); loadSpecies(); loadUsers(); loadSpeciesOptions();
+  </script>
+</body>
+</html>
