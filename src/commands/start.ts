@@ -2,30 +2,38 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { getSupabase } from '../database/supabase/client.js';
 import { getArtworkUrl } from '../storage/artwork.service.js';
+import type { Species } from '../modules/pet/pet.types.js';
+
+const SPECIES_EMOJI: Record<string, string> = {
+  cat: '🐱',
+  fox: '🦊',
+  rabbit: '🐰',
+  wolf: '🐺',
+  dragon: '🐉',
+  phoenix: '🔥',
+  unicorn: '🦄',
+  default: '🐾',
+};
+
+function getEmoji(speciesId: string): string {
+  return SPECIES_EMOJI[speciesId] ?? SPECIES_EMOJI['default'];
+}
+
+function rollSpecies(pool: Species[]): Species {
+  const totalWeight = pool.reduce((sum, s) => sum + s.spawn_weight, 0);
+  let roll = Math.random() * totalWeight;
+
+  for (const species of pool) {
+    roll -= species.spawn_weight;
+    if (roll <= 0) return species;
+  }
+
+  return pool[0]!;
+}
 
 export const data = new SlashCommandBuilder()
   .setName('start')
   .setDescription('Nhận một pet ngẫu nhiên!');
-
-const SPECIES_POOL = [
-  { id: 'cat', name: 'Cat', emoji: '🐱', weight: 60 },
-  { id: 'fox', name: 'Fox', emoji: '🦊', weight: 25 },
-  { id: 'rabbit', name: 'Rabbit', emoji: '🐰', weight: 10 },
-  { id: 'wolf', name: 'Wolf', emoji: '🐺', weight: 4 },
-  { id: 'dragon', name: 'Dragon', emoji: '🐉', weight: 1 },
-];
-
-function rollSpecies(): (typeof SPECIES_POOL)[number] {
-  const totalWeight = SPECIES_POOL.reduce((sum, s) => sum + s.weight, 0);
-  let roll = Math.random() * totalWeight;
-
-  for (const species of SPECIES_POOL) {
-    roll -= species.weight;
-    if (roll <= 0) return species;
-  }
-
-  return SPECIES_POOL[0];
-}
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const supabase = getSupabase();
@@ -47,8 +55,27 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   await interaction.deferReply();
 
-  const species = rollSpecies();
+  const { data: speciesList, error: speciesError } = await supabase
+    .from('species')
+    .select('*');
+
+  if (speciesError || !speciesList || speciesList.length === 0) {
+    console.error('Failed to load species:', speciesError);
+    await interaction.editReply('❌ Không có species nào trong database. Thêm species trên Web Admin trước!');
+    return;
+  }
+
+  const species = rollSpecies(speciesList as Species[]);
   const artworkUrl = getArtworkUrl(species.id, 1);
+  const emoji = getEmoji(species.id);
+
+  const rarityMap: Record<string, string> = {
+    common: 'Common',
+    uncommon: '⭐ Uncommon',
+    rare: '⭐⭐ Rare',
+    epic: '⭐⭐⭐ Epic',
+    legendary: '💎 Legendary',
+  };
 
   const { error } = await supabase.from('pets').insert({
     user_id: userId,
@@ -56,10 +83,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     name: species.name,
     level: 1,
     xp: 0,
-    health: 100,
-    hunger: 100,
-    energy: 100,
-    mood: 50,
+    health: species.base_stats?.health ?? 100,
+    hunger: species.base_stats?.hunger ?? 100,
+    energy: species.base_stats?.energy ?? 100,
+    mood: species.base_stats?.mood ?? 50,
     bond: 0,
   });
 
@@ -78,8 +105,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     .setTitle('🎲 Random Encounter!')
     .setDescription(`Bạn đã tìm được một sinh vật phù hợp!`)
     .addFields(
-      { name: 'Species', value: `${species.emoji} ${species.name}`, inline: true },
-      { name: 'Rarity', value: species.id === 'dragon' ? '⭐ Legendary' : 'Common', inline: true },
+      { name: 'Species', value: `${emoji} ${species.name}`, inline: true },
+      { name: 'Rarity', value: rarityMap[species.rarity] ?? 'Common', inline: true },
     )
     .setImage(artworkUrl)
     .setColor('#FFD700')
