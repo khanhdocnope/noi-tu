@@ -71,10 +71,18 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   const rarityMap: Record<string, string> = {
     common: 'Common',
-    uncommon: '⭐ Uncommon',
-    rare: '⭐⭐ Rare',
-    epic: '⭐⭐⭐ Epic',
-    legendary: '💎 Legendary',
+    uncommon: '🟢 Uncommon',
+    rare: '🔵 Rare',
+    epic: '🟣 Epic',
+    legendary: '🟡 Legendary',
+  };
+
+  const rarityColors: Record<string, string> = {
+    common: '#99AAB5',
+    uncommon: '#2ECC71',
+    rare: '#3498DB',
+    epic: '#9B59B6',
+    legendary: '#F1C40F',
   };
 
   const { error } = await supabase.from('pets').insert({
@@ -109,7 +117,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       { name: 'Rarity', value: rarityMap[species.rarity] ?? 'Common', inline: true },
     )
     .setImage(artworkUrl)
-    .setColor('#FFD700');
+    .setColor(rarityColors[species.rarity] ?? '#99AAB5');
 
   await interaction.editReply({ embeds: [embed] });
 }

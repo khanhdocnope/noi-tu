@@ -1,4 +1,4 @@
-# 🐾 Nuôi Một Thứ
+# Nuôi Một Thứ
 
 Discord bot game theo mô hình **virtual pet + progression + economy + exploration**.
 
@@ -100,24 +100,37 @@ Web admin: http://localhost:3000
 | Command | Mô tả |
 |---------|-------|
 | `/start` | Random nhận pet |
-| `/profile` | Xem profile pet |
-| `/feed` | Cho pet ăn (coming soon) |
-| `/play` | Chơi với pet (coming soon) |
-| `/hunt` | Pet đi săn (coming soon) |
-| `/daily` | Nhận daily reward (coming soon) |
+| `/profile` | Xem profile pet với stats, progress bar, action buttons |
+| `/feed` | Cho pet ăn |
+| `/play` | Chơi với pet |
+| `/rest` | Pet nghỉ ngơi |
+| `/hunt` | Pet đi săn |
+| `/daily` | Nhận daily reward |
+| `/shop` | Mua items (Select Menu + Modal) |
+| `/buy` | Mua items (fallback) |
 
 ## Web Admin
 
-- 🐱 **Pets** - Xem & quản lý tất cả pet
-- 🧬 **Species** - CRUD species
-- 👥 **Users** - Xem users & transactions
-- 🎨 **Artwork** - Upload ảnh lên Hugging Face
+- **Pets** - Xem & quản lý tất cả pet
+- **Species** - CRUD species
+- **Users** - Xem users & transactions
+- **Artwork** - Upload ảnh lên Hugging Face
+
+## Rarity System
+
+| Rarity | Color | Hex |
+|--------|-------|-----|
+| Common | Gray | #99AAB5 |
+| Uncommon | Green | #2ECC71 |
+| Rare | Blue | #3498DB |
+| Epic | Purple | #9B59B6 |
+| Legendary | Gold | #F1C40F |
 
 ## Cấu trúc
 
 ```
 src/
-├── index.ts              # Entry point
+├── index.ts              # Entry point (Bot + Express)
 ├── client/               # Discord bot client
 ├── commands/             # Slash commands
 ├── modules/              # Gameplay logic

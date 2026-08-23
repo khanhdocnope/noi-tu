@@ -34,6 +34,31 @@ const SPECIES_EMOJI: Record<string, string> = {
 };
 const getEmoji = (s: string) => SPECIES_EMOJI[s] ?? '🐾';
 
+const RARITY_COLORS: Record<string, string> = {
+  common: '#99AAB5',
+  uncommon: '#2ECC71',
+  rare: '#3498DB',
+  epic: '#9B59B6',
+  legendary: '#F1C40F',
+};
+
+async function getSpeciesRarity(speciesId: string): Promise<string> {
+  const supabase = getSupabase();
+  const { data } = await supabase.from('species').select('rarity').eq('id', speciesId).single();
+  return data?.rarity ?? 'common';
+}
+
+function getRarityLabel(rarity: string): string {
+  const labels: Record<string, string> = {
+    common: '⚪ Common',
+    uncommon: '🟢 Uncommon',
+    rare: '🔵 Rare',
+    epic: '🟣 Epic',
+    legendary: '🟡 Legendary',
+  };
+  return labels[rarity] ?? '⚪ Common';
+}
+
 export const data = new SlashCommandBuilder()
   .setName('profile')
   .setDescription('Xem profile pet của bạn');
@@ -55,6 +80,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const coin = user?.coin ?? 0;
   const emoji = getEmoji(p.species);
   const artworkUrl = getArtworkUrl(p.species, p.level);
+  const rarity = await getSpeciesRarity(p.species);
+  const embedColor = RARITY_COLORS[rarity] ?? '#99AAB5';
 
   const xpForNext = Math.floor(100 * Math.pow(p.level, 1.35));
   const xpPercent = Math.round((p.xp / xpForNext) * 100);
@@ -62,7 +89,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   const embed = new EmbedBuilder()
     .setTitle(`${emoji} ${p.name} • Level ${p.level}`)
-    .setColor('#FF5722')
+    .setColor(embedColor)
     .setImage(artworkUrl)
     .addFields(
       {
@@ -85,6 +112,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         value: [
           `🪙 Vàng: **${coin.toLocaleString()}**`,
           `💖 Thân thiết: **${p.bond ?? 0}**`,
+          `${getRarityLabel(rarity)}`,
         ].join('\n'),
         inline: false,
       },
@@ -123,13 +151,15 @@ async function rebuildProfile(userId: string) {
   const coin = user?.coin ?? 0;
   const emoji = getEmoji(p.species);
   const artworkUrl = getArtworkUrl(p.species, p.level);
+  const rarity = await getSpeciesRarity(p.species);
+  const embedColor = RARITY_COLORS[rarity] ?? '#99AAB5';
   const xpForNext = Math.floor(100 * Math.pow(p.level, 1.35));
   const xpPercent = Math.round((p.xp / xpForNext) * 100);
   const xpBar = getProgressBar(p.xp, xpForNext);
 
   const embed = new EmbedBuilder()
     .setTitle(`${emoji} ${p.name} • Level ${p.level}`)
-    .setColor('#FF5722')
+    .setColor(embedColor)
     .setImage(artworkUrl)
     .addFields(
       {
@@ -152,6 +182,7 @@ async function rebuildProfile(userId: string) {
         value: [
           `🪙 Vàng: **${coin.toLocaleString()}**`,
           `💖 Thân thiết: **${p.bond ?? 0}**`,
+          `${getRarityLabel(rarity)}`,
         ].join('\n'),
         inline: false,
       },
