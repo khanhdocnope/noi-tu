@@ -1,5 +1,7 @@
 import { Events, type ClientEvents } from 'discord.js';
 import type { BotClient } from './bot.js';
+import * as shopCommand from '../commands/shop.js';
+import * as profileCommand from '../commands/profile.js';
 
 type EventName = keyof ClientEvents;
 
@@ -42,15 +44,40 @@ export function createInteractionCreateEvent(): Event<Events.InteractionCreate> 
   return {
     name: Events.InteractionCreate,
     execute(interaction) {
-      if (!interaction.isChatInputCommand()) return;
-
-      const command = (interaction.client as BotClient).commands.get(interaction.commandName);
-      if (!command) {
-        console.warn(`Unknown command: ${interaction.commandName}`);
+      if (interaction.isChatInputCommand()) {
+        const command = (interaction.client as BotClient).commands.get(interaction.commandName);
+        if (!command) {
+          console.warn(`Unknown command: ${interaction.commandName}`);
+          return;
+        }
+        command.execute(interaction).catch(console.error);
         return;
       }
 
-      command.execute(interaction).catch(console.error);
+      if (interaction.isStringSelectMenu() && interaction.customId === 'shop_select') {
+        shopCommand.handleSelect(interaction).catch(console.error);
+        return;
+      }
+
+      if (interaction.isModalSubmit() && interaction.customId.startsWith('shop_modal_')) {
+        shopCommand.handleModal(interaction).catch(console.error);
+        return;
+      }
+
+      if (interaction.isButton() && interaction.customId.startsWith('shop_')) {
+        shopCommand.handleButton(interaction).catch(console.error);
+        return;
+      }
+
+      if (interaction.isButton() && interaction.customId.startsWith('profile_')) {
+        profileCommand.handleButton(interaction).catch(console.error);
+        return;
+      }
+
+      if (interaction.isStringSelectMenu() && interaction.customId === 'profile_feed_select') {
+        profileCommand.handleFeedSelect(interaction).catch(console.error);
+        return;
+      }
     },
   };
 }
