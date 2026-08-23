@@ -1,0 +1,125 @@
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { getSupabase } from '../database/supabase/client.js';
+import { getArtworkUrl } from '../storage/artwork.service.js';
+
+const ENERGY_COST = 20;
+const DEFAULT_AREA = 'misty_forest';
+
+interface HuntEncounter {
+  encounter_id: string;
+  name: string;
+  area_id: string;
+  min_level: number;
+  weight: number;
+  coin_min: number;
+  coin_max: number;
+  xp_min: number;
+  xp_max: number;
+  drops: Record<string, number>;
+  text: string;
+}
+
+function rollEncounter(pool: HuntEncounter[]): HuntEncounter {
+  const total = pool.reduce((s, o) => s + o.weight, 0);
+  let roll = Math.random() * total;
+  for (const o of pool) {
+    roll -= o.weight;
+    if (roll <= 0) return o;
+  }
+  return pool[0]!;
+}
+
+function rand(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+export const data = new SlashCommandBuilder()
+  .setName('hunt')
+  .setDescription('Pet đi săn');
+
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  const supabase = getSupabase();
+  const userId = interaction.user.id;
+
+  await interaction.deferReply();
+
+  const { data: pet } = await supabase
+    .from('pets')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+
+  if (!pet) {
+    await interaction.editReply({ content: '❌ Bạn chưa có pet! Dùng `/start`.' });
+    return;
+  }
+
+  if ((pet.energy ?? 0) < 20) {
+    await interaction.editReply({ content: '❌ Pet quá mệt! Dùng `/rest`.' });
+    return;
+  }
+
+  const { data: encounters } = await supabase
+    .from('hunt_encounters')
+    .select('*')
+    .eq('area_id', DEFAULT_AREA)
+    .lte('min_level', pet.level);
+
+  const available = (encounters ?? []) as HuntEncounter[];
+  if (available.length === 0) {
+    await interaction.editReply({ content: '❌ Khu vực này chưa có con mồi nào cho level của bạn.' });
+    return;
+  }
+
+  const encounter = rollEncounter(available);
+  const coinGain = rand(encounter.coin_min, encounter.coin_max);
+  const xpGain = rand(encounter.xp_min, encounter.xp_max);
+
+  await supabase.from('pets').update({
+    energy: Math.max(0, (pet.energy ?? 0) - 20),
+    xp: (pet.xp ?? 0) + rand(encounter.xp_min, encounter.xp_max),
+  }).eq('user_id', userId);
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('coin')
+    .eq('user_id', userId)
+    .single();
+
+  const newCoin = (user?.coin ?? 0) + coinGain;
+  await supabase.from('users').update({ coin: newCoin }).eq('user_id', userId);
+
+  const upsertItem = async (itemId: string, amount: number) => {
+    const { data: existing } = await supabase
+      .from('inventory')
+      .select('quantity')
+      .eq('user_id', userId)
+      .eq('item_id', itemId)
+      .single();
+
+    const newQty = (existing?.quantity ?? 0) + amount;
+    await supabase.from('inventory').upsert({
+      user_id: userId,
+      item_id: itemId,
+      quantity: newQty,
+    });
+  };
+
+  for (const [itemId, amount] of Object.entries(encounter.drops ?? {})) {
+    if (amount > 0) await upsertItem(itemId, amount);
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('🌲 Hunt Result')
+    .setDescription(`${encounter.name}: ${encounter.text ?? 'Kết quả săn bắn!'}`)
+    .addFields(
+      { name: '🪙 Coin', value: `+${coinGain}`, inline: true },
+      { name: '✨ XP', value: `+${xpGain}`, inline: true },
+      { name: '⚡ Energy', value: `-20`, inline: true },
+    )
+    .setImage(getArtworkUrl(pet.species, pet.level))
+    .setColor('#228B22');
+
+  await interaction.editReply({ embeds: [embed] });
+}

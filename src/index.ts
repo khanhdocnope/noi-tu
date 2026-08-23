@@ -5,6 +5,13 @@ import { loadCommands } from './client/command-handler.js';
 import { loadEvents, createReadyEvent, createInteractionCreateEvent } from './client/event-handler.js';
 import * as startCommand from './commands/start.js';
 import * as profileCommand from './commands/profile.js';
+import * as dailyCommand from './commands/daily.js';
+import * as feedCommand from './commands/feed.js';
+import * as playCommand from './commands/play.js';
+import * as restCommand from './commands/rest.js';
+import * as huntCommand from './commands/hunt.js';
+import * as shopCommand from './commands/shop.js';
+import * as buyCommand from './commands/buy.js';
 import { cookieParser } from './web/cookie-parser.js';
 import { authMiddleware, handleLogin, handleLoginPage } from './web/auth.js';
 import { petsRouter } from './web/routes/pets.js';
@@ -52,7 +59,7 @@ async function main(): Promise<void> {
 
   const client = await startBot();
 
-  loadCommands(client, [startCommand, profileCommand]);
+  loadCommands(client, [startCommand, profileCommand, dailyCommand, feedCommand, playCommand, restCommand, huntCommand, shopCommand, buyCommand]);
 
   loadEvents(client, [createReadyEvent(), createInteractionCreateEvent()]);
 
