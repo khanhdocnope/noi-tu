@@ -19,23 +19,37 @@ async function getShopItems(category: string, page: number) {
   return { data: data ?? [], error };
 }
 
+function getEmoji(type: string): string {
+  const emojis: Record<string, string> = {
+    food: '🍖',
+    medicine: '💊',
+    energy: '⚡',
+  };
+  return emojis[type] ?? '🎁';
+}
+
 function createShopEmbed(items: any[], page: number, category: string, userCoin: number) {
   const embed = new EmbedBuilder()
     .setTitle('🏪 Pet Shop')
-    .setDescription(`Danh mục: **${category}** | Coin: **${userCoin} 🪙**`)
     .setColor('#FFD700');
 
   if (items.length === 0) {
     embed.setDescription('😭 Hết hàng!');
   } else {
-    embed.setFields(items.map(item => ({
-      name: `${item.name} - ${item.price} 🪙`,
-      value: item.description ?? 'Không có mô tả',
-      inline: true
-    })));
+    const description = items.map((item, i) => {
+      const emoji = getEmoji(item.type);
+      return `**${i + 1}.** ${emoji} **${item.name}** — \`${item.price} 🪙\`\n> ${item.description ?? 'Không có mô tả'}`;
+    }).join('\n\n');
+
+    embed.setDescription(description);
   }
 
-  embed.setFooter({ text: `Trang ${page} • /buy <item_id> để mua` });
+  embed.addFields(
+    { name: 'Danh mục', value: `**${category}**`, inline: true },
+    { name: 'Ví của bạn', value: `**${userCoin.toLocaleString()} 🪙**`, inline: true },
+  );
+
+  embed.setFooter({ text: `Trang ${page} • /buy <item_id> [số lượng] để mua` });
   return embed;
 }
 
