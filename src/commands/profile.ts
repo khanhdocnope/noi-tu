@@ -186,10 +186,13 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   console.log(`[Profile] Execute called by ${interaction.user.id}`);
-  await interaction.deferReply();
-  const userId = interaction.user.id;
 
   try {
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.deferReply();
+    }
+    const userId = interaction.user.id;
+
     const { pet } = await fetchPetData(userId);
     if (!pet) {
       await interaction.editReply({ content: '❌ Bạn chưa có pet! Dùng `/start`.' });
@@ -203,7 +206,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
-    await interaction.editReply({ embeds: [profile.embed], components: [profile.row] });
+    if (interaction.deferred) {
+      await interaction.editReply({ embeds: [profile.embed], components: [profile.row] });
+    }
 
     if (rested) {
       await interaction.followUp({
@@ -211,8 +216,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       });
     }
   } catch (error) {
-    console.error('Profile error:', error);
-    await interaction.editReply({ content: '❌ Có lỗi xảy ra! Thử lại sau.' }).catch(() => {});
+    console.error('[Profile] Error:', error);
+    if (interaction.deferred && !interaction.replied) {
+      await interaction.editReply({ content: '❌ Có lỗi xảy ra! Thử lại sau.' }).catch(() => {});
+    } else if (!interaction.replied) {
+      await interaction.reply({ content: '❌ Có lỗi xảy ra! Thử lại sau.' }).catch(() => {});
+    }
   }
 }
 
