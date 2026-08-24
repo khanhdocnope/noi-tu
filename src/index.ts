@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import { startBot } from './client/bot.js';
 import { loadCommands } from './client/command-handler.js';
-import { loadEvents, createReadyEvent, createInteractionCreateEvent } from './client/event-handler.js';
+import { loadEvents, createReadyEvent, createInteractionCreateEvent, createMessageEvent } from './client/event-handler.js';
 import * as startCommand from './commands/start.js';
 import * as profileCommand from './commands/profile.js';
 import * as dailyCommand from './commands/daily.js';
@@ -15,6 +15,7 @@ import * as buyCommand from './commands/buy.js';
 import * as inventoryCommand from './commands/inventory.js';
 import * as sellCommand from './commands/sell.js';
 import * as marketCommand from './commands/market.js';
+import * as rollCommand from './commands/roll.js';
 import { cookieParser } from './web/cookie-parser.js';
 import { authMiddleware, handleLogin, handleLoginPage } from './web/auth.js';
 import { petsRouter } from './web/routes/pets.js';
@@ -63,9 +64,9 @@ async function main(): Promise<void> {
 
   const client = await startBot();
 
-  loadCommands(client, [startCommand, profileCommand, dailyCommand, feedCommand, playCommand, restCommand, huntCommand, shopCommand, buyCommand, inventoryCommand, sellCommand, marketCommand]);
+  loadCommands(client, [startCommand, profileCommand, dailyCommand, feedCommand, playCommand, restCommand, huntCommand, shopCommand, buyCommand, inventoryCommand, sellCommand, marketCommand, rollCommand]);
 
-  loadEvents(client, [createReadyEvent(), createInteractionCreateEvent()]);
+  loadEvents(client, [createReadyEvent(), createInteractionCreateEvent(), createMessageEvent()]);
 
   console.log('✅ Bot is running!');
 }

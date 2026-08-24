@@ -4,6 +4,7 @@ import * as shopCommand from '../commands/shop.js';
 import * as profileCommand from '../commands/profile.js';
 import * as sellCommand from '../commands/sell.js';
 import * as marketCommand from '../commands/market.js';
+import { handlePrefixMessage } from './prefix-handler.js';
 
 export function loadEvents(client: BotClient, events: Array<{ name: string; once?: boolean; execute: (...args: any[]) => any }>): void {
   for (const event of events) {
@@ -87,6 +88,20 @@ export function createInteractionCreateEvent() {
         marketCommand.handleModal(interaction).catch(console.error);
         return;
       }
+
+      if (interaction.isStringSelectMenu() && interaction.customId === 'market_buy_select') {
+        marketCommand.handleBuySelect(interaction).catch(console.error);
+        return;
+      }
+    },
+  };
+}
+
+export function createMessageEvent() {
+  return {
+    name: Events.MessageCreate,
+    execute(message: any) {
+      handlePrefixMessage(message);
     },
   };
 }
