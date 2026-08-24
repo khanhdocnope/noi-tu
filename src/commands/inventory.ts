@@ -2,6 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { getSupabase } from '../database/supabase/client.js';
 import { getCreatureName, getSellPrice } from './hunt.js';
+import { getItemByAlias } from '../storage/item-alias.service.js';
 
 const FOOD_ITEMS: Record<string, { name: string; desc: string }> = {
   apple: { name: '🍎 Táo', desc: 'Tăng 10 Hunger' },
@@ -12,6 +13,16 @@ const FOOD_ITEMS: Record<string, { name: string; desc: string }> = {
 };
 
 const SELLABLE_ITEMS = ['rabbit', 'squirrel', 'deer', 'boar', 'wolf', 'gold_ring'];
+
+const ALIASES: Record<string, string> = {};
+async function loadAliases() {
+  const supabase = getSupabase();
+  const { data } = await supabase.from('item_aliases').select('*');
+  for (const row of (data ?? []) as any[]) {
+    ALIASES[row.item_id] = row.alias;
+  }
+}
+loadAliases();
 
 export const data = new SlashCommandBuilder()
   .setName('inventory')
@@ -41,15 +52,16 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   for (const item of items) {
     const qty = item.quantity;
+    const alias = ALIASES[item.item_id] ?? '???';
     const food = FOOD_ITEMS[item.item_id];
     if (food) {
-      foodList.push(`${food.name} x${qty} — ${food.desc}`);
+      foodList.push(`${food.name} x${qty} — ${food.desc} — \`\.${alias}\``);
     } else if (SELLABLE_ITEMS.includes(item.item_id)) {
       const name = getCreatureName(item.item_id);
       const price = getSellPrice(item.item_id);
-      creatureList.push(`${name} x${qty} — Bán ${price} 🪙/con`);
+      creatureList.push(`${name} x${qty} — Bán ${price} 🪙 — \`\.${alias}\``);
     } else {
-      creatureList.push(`❓ ${item.item_id} x${qty}`);
+      creatureList.push(`❓ ${item.item_id} x${qty} — \`\.${alias}\``);
     }
   }
 
@@ -59,7 +71,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   if (foodList.length > 0) {
     embed.addFields({
-      name: '🍖 Đồ ăn / Vật phẩm',
+      name: '🍖 Đồ ăn',
       value: foodList.join('\n'),
       inline: false,
     });
@@ -67,13 +79,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   if (creatureList.length > 0) {
     embed.addFields({
-      name: '🐾 Động vật / Có thể bán',
+      name: '🐾 Động vật',
       value: creatureList.join('\n'),
       inline: false,
     });
   }
 
-  embed.setFooter({ text: 'Dùng /sell để bán động vật lấy coin' });
+  embed.setFooter({ text: 'Dùng .feed <id> để cho ăn | .sell <id> để bán' });
 
   await interaction.editReply({ embeds: [embed] });
 }
