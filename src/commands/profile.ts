@@ -9,8 +9,11 @@ import {
 import type { ChatInputCommandInteraction, ButtonInteraction, StringSelectMenuInteraction } from 'discord.js';
 import { getSupabase } from '../database/supabase/client.js';
 import { getArtworkUrl } from '../storage/artwork.service.js';
-import { getRestingInfo } from './rest.js';
 import type { Pet } from '../modules/pet/pet.types.js';
+
+const REST_DURATION_MS = 5 * 60 * 1000;
+const ENERGY_PER_SECOND = 30 / 300;
+const HEALTH_PER_SECOND = 10 / 300;
 
 function getProgressBar(current: number, max: number, length: number = 10): string {
   const filled = Math.round((current / max) * length);
@@ -43,151 +46,77 @@ const RARITY_COLORS: Record<string, string> = {
   legendary: '#F1C40F',
 };
 
-async function getSpeciesRarity(speciesId: string): Promise<string> {
-  const supabase = getSupabase();
-  const { data } = await supabase.from('species').select('rarity').eq('id', speciesId).single();
-  return data?.rarity ?? 'common';
+const RARITY_LABELS: Record<string, string> = {
+  common: '⚪ Common',
+  uncommon: '🟢 Uncommon',
+  rare: '🔵 Rare',
+  epic: '🟣 Epic',
+  legendary: '🟡 Legendary',
+};
+
+function computeRest(pet: any): { isResting: boolean; timeRemaining: number } {
+  if (!pet.rest_start) return { isResting: false, timeRemaining: 0 };
+  const elapsed = Date.now() - new Date(pet.rest_start).getTime();
+  if (elapsed >= REST_DURATION_MS) return { isResting: false, timeRemaining: 0 };
+  return { isResting: true, timeRemaining: REST_DURATION_MS - elapsed };
 }
 
-function getRarityLabel(rarity: string): string {
-  const labels: Record<string, string> = {
-    common: '⚪ Common',
-    uncommon: '🟢 Uncommon',
-    rare: '🔵 Rare',
-    epic: '🟣 Epic',
-    legendary: '🟡 Legendary',
-  };
-  return labels[rarity] ?? '⚪ Common';
+async function finishRestIfDone(pet: any): Promise<boolean> {
+  if (!pet.rest_start) return false;
+  const elapsed = Date.now() - new Date(pet.rest_start).getTime();
+  if (elapsed < REST_DURATION_MS) return false;
+
+  const finalEnergy = Math.min(100, Math.round((pet.energy ?? 0) + 30));
+  const finalHealth = Math.min(100, Math.round((pet.health ?? 0) + 10));
+  const energyGain = Math.round((pet.rest_duration ?? 0) * ENERGY_PER_SECOND);
+  const healthGain = Math.round((pet.rest_duration ?? 0) * HEALTH_PER_SECOND);
+
+  const supabase = getSupabase();
+  await supabase.from('pets').update({
+    energy: finalEnergy,
+    health: finalHealth,
+    rest_start: null,
+    rest_duration: 0,
+  }).eq('user_id', pet.user_id);
+
+  return true;
 }
 
-export const data = new SlashCommandBuilder()
-  .setName('profile')
-  .setDescription('Xem profile pet của bạn');
-
-export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+async function fetchPetData(userId: string) {
   const supabase = getSupabase();
-  const userId = interaction.user.id;
-
-  await interaction.deferReply();
-
-  const { data: pet } = await supabase.from('pets').select('*').eq('user_id', userId).single();
-  if (!pet) {
-    await interaction.editReply({ content: '❌ Bạn chưa có pet! Dùng `/start`.' });
-    return;
-  }
-
-  const restingInfo = await getRestingInfo(pet);
-  if (restingInfo && !restingInfo.isResting && (restingInfo.energyGain > 0 || restingInfo.healthGain > 0)) {
-    await interaction.followUp({
-      content: `😴 ${pet.name} đã thức dậy! +${restingInfo.energyGain} ⚡, +${restingInfo.healthGain} ❤️`,
-    });
-  }
-
-  const { data: updatedPet } = await supabase.from('pets').select('*').eq('user_id', userId).single();
-  const { data: user } = await supabase.from('users').select('coin').eq('user_id', userId).single();
-  const p = (updatedPet ?? pet) as Pet;
-  const coin = user?.coin ?? 0;
-  const emoji = getEmoji(p.species);
-  const artworkUrl = getArtworkUrl(p.species, p.level);
-  const rarity = await getSpeciesRarity(p.species);
-  const embedColor = RARITY_COLORS[rarity] ?? '#99AAB5';
-
-  const xpForNext = Math.floor(100 * Math.pow(p.level, 1.35));
-  const xpPercent = Math.round((p.xp / xpForNext) * 100);
-  const xpBar = getProgressBar(p.xp, xpForNext);
-
-  const isResting = (updatedPet ?? pet)?.rest_start != null;
-
-  let statusText = `${getMoodLabel(p.mood ?? 50)}`;
-  if (isResting) {
-    const elapsed = Date.now() - new Date((updatedPet ?? pet).rest_start).getTime();
-    const remaining = Math.max(0, 300000 - elapsed);
-    const minutes = Math.floor(remaining / 60000);
-    const seconds = Math.floor((remaining % 60000) / 1000);
-    statusText = `😴 Đang nghỉ ngơi (${minutes}p ${seconds}s)`;
-  }
-
-  const embed = new EmbedBuilder()
-    .setTitle(`${emoji} ${p.name} • Level ${p.level}`)
-    .setColor(embedColor as any)
-    .setImage(artworkUrl)
-    .addFields(
-      {
-        name: '✨ Tiến trình Cấp độ',
-        value: `${xpBar} \`${p.xp}/${xpForNext} XP (${xpPercent}%)\``,
-        inline: false,
-      },
-      {
-        name: '📊 Chỉ Số Sinh Tồn',
-        value: [
-          `${getStatusIcon(p.health, [30, 70])} ❤️ Máu: **${p.health}/100**`,
-          `${getStatusIcon(p.hunger, [30, 70])} 🍖 No: **${p.hunger}/100**`,
-          `${getStatusIcon(p.energy, [30, 70])} ⚡ Năng lượng: **${p.energy}/100**`,
-          `${getStatusIcon(p.mood, [30, 50])} 😊 Tâm trạng: **${p.mood}/100** — ${statusText}`,
-        ].join('\n'),
-        inline: false,
-      },
-      {
-        name: '💎 Thông Tin',
-        value: [
-          `🪙 Vàng: **${coin.toLocaleString()}**`,
-          `💖 Thân thiết: **${p.bond ?? 0}**`,
-          `${getRarityLabel(rarity)}`,
-        ].join('\n'),
-        inline: false,
-      },
-    )
-    .setFooter({ text: isResting ? '😴 Pet đang nghỉ ngơi — không thể săn/chơi!' : `💡 Mẹo: Hãy cho ${p.name} ăn để tăng Tâm trạng và Thân thiết!` });
-
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId('profile_feed')
-      .setLabel('🍖 Cho ăn')
-      .setStyle(ButtonStyle.Success)
-      .setDisabled(isResting),
-    new ButtonBuilder()
-      .setCustomId('profile_play')
-      .setLabel('🎮 Chơi đùa')
-      .setStyle(ButtonStyle.Primary)
-      .setDisabled(isResting),
-    new ButtonBuilder()
-      .setCustomId('profile_hunt')
-      .setLabel('⚔️ Săn bắn')
-      .setStyle(ButtonStyle.Danger)
-      .setDisabled(isResting),
-    new ButtonBuilder()
-      .setCustomId('profile_inventory')
-      .setLabel('🎒 Túi đồ')
-      .setStyle(ButtonStyle.Secondary),
-  );
-
-  await interaction.editReply({ embeds: [embed], components: [row] });
+  const [petResult, userResult] = await Promise.all([
+    supabase.from('pets').select('*').eq('user_id', userId).single(),
+    supabase.from('users').select('coin').eq('user_id', userId).single(),
+  ]);
+  return { pet: petResult.data, user: userResult.data };
 }
 
-async function rebuildProfile(userId: string) {
-  const supabase = getSupabase();
-  const { data: pet } = await supabase.from('pets').select('*').eq('user_id', userId).single();
-  const { data: user } = await supabase.from('users').select('coin').eq('user_id', userId).single();
+async function buildProfile(userId: string) {
+  const { pet, user } = await fetchPetData(userId);
   if (!pet) return null;
 
   const p = pet as Pet;
-  const coin = user?.coin ?? 0;
+  const supabase = getSupabase();
+  const { data: speciesData } = await supabase.from('species').select('rarity').eq('id', p.species).single();
+  const rarity = speciesData?.rarity ?? 'common';
+
+  return buildProfileFromData(p, user?.coin ?? 0, rarity);
+}
+
+function buildProfileFromData(p: Pet, coin: number, rarity: string) {
   const emoji = getEmoji(p.species);
   const artworkUrl = getArtworkUrl(p.species, p.level);
-  const rarity = await getSpeciesRarity(p.species);
   const embedColor = RARITY_COLORS[rarity] ?? '#99AAB5';
   const xpForNext = Math.floor(100 * Math.pow(p.level, 1.35));
   const xpPercent = Math.round((p.xp / xpForNext) * 100);
   const xpBar = getProgressBar(p.xp, xpForNext);
 
-  const isResting = p.rest_start != null;
+  const { isResting, timeRemaining } = computeRest(p);
 
-  let statusText = `${getMoodLabel(p.mood ?? 50)}`;
+  let statusText = getMoodLabel(p.mood ?? 50);
   if (isResting) {
-    const elapsed = Date.now() - new Date(p.rest_start!).getTime();
-    const remaining = Math.max(0, 300000 - elapsed);
-    const minutes = Math.floor(remaining / 60000);
-    const seconds = Math.floor((remaining % 60000) / 1000);
+    const minutes = Math.floor(timeRemaining / 60000);
+    const seconds = Math.floor((timeRemaining % 60000) / 1000);
     statusText = `😴 Đang nghỉ ngơi (${minutes}p ${seconds}s)`;
   }
 
@@ -216,7 +145,7 @@ async function rebuildProfile(userId: string) {
         value: [
           `🪙 Vàng: **${coin.toLocaleString()}**`,
           `💖 Thân thiết: **${p.bond ?? 0}**`,
-          `${getRarityLabel(rarity)}`,
+          `${RARITY_LABELS[rarity] ?? '⚪ Common'}`,
         ].join('\n'),
         inline: false,
       },
@@ -230,7 +159,41 @@ async function rebuildProfile(userId: string) {
     new ButtonBuilder().setCustomId('profile_inventory').setLabel('🎒 Túi đồ').setStyle(ButtonStyle.Secondary),
   );
 
-  return { embed, row };
+  return { embed, row, pet: p };
+}
+
+export const data = new SlashCommandBuilder()
+  .setName('profile')
+  .setDescription('Xem profile pet của bạn');
+
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.deferReply();
+  const userId = interaction.user.id;
+
+  const { pet } = await fetchPetData(userId);
+  if (!pet) {
+    await interaction.editReply({ content: '❌ Bạn chưa có pet! Dùng `/start`.' });
+    return;
+  }
+
+  const rested = await finishRestIfDone(pet);
+  const profile = await buildProfile(userId);
+  if (!profile) {
+    await interaction.editReply({ content: '❌ Lỗi load profile!' });
+    return;
+  }
+
+  await interaction.editReply({ embeds: [profile.embed], components: [profile.row] });
+
+  if (rested) {
+    await interaction.followUp({
+      content: `😴 ${pet.name} đã thức dậy! +30 ⚡, +10 ❤️`,
+    });
+  }
+}
+
+async function rebuildProfile(userId: string) {
+  return buildProfile(userId);
 }
 
 export async function handleButton(interaction: ButtonInteraction): Promise<void> {
@@ -241,12 +204,10 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
     await interaction.deferUpdate();
     const { data: pet } = await supabase.from('pets').select('*').eq('user_id', userId).single();
     if (!pet) return;
-
     if (pet.rest_start) {
-      await interaction.followUp({ content: '❌ Pet đang nghỉ ngơi! Đợi thức dậy.', ephemeral: true });
+      await interaction.followUp({ content: '❌ Pet đang nghỉ ngơi!', ephemeral: true });
       return;
     }
-
     if ((pet.energy ?? 0) < 15) {
       await interaction.followUp({ content: '❌ Pet quá mệt! Hãy nghỉ ngơi.', ephemeral: true });
       return;
@@ -263,7 +224,7 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
     if (profile) {
       await interaction.editReply({ embeds: [profile.embed], components: [profile.row] });
     }
-    await interaction.followUp({ content: `✨ Bạn đã chơi với ${(pet as Pet).name}! (+15 XP, +1 Bond, +10 Mood)`, ephemeral: true });
+    await interaction.followUp({ content: `✨ Chơi với ${pet.name}! (+15 XP, +1 Bond, +10 Mood)`, ephemeral: true });
     return;
   }
 
@@ -271,12 +232,10 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
     await interaction.deferUpdate();
     const { data: pet } = await supabase.from('pets').select('*').eq('user_id', userId).single();
     if (!pet) return;
-
     if (pet.rest_start) {
-      await interaction.followUp({ content: '❌ Pet đang nghỉ ngơi! Đợi thức dậy.', ephemeral: true });
+      await interaction.followUp({ content: '❌ Pet đang nghỉ ngơi!', ephemeral: true });
       return;
     }
-
     if ((pet.energy ?? 0) < 20) {
       await interaction.followUp({ content: '❌ Pet quá mệt! Hãy nghỉ ngơi.', ephemeral: true });
       return;
@@ -306,7 +265,6 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
       await interaction.followUp({ content: '🎒 Túi đồ trống!', ephemeral: true });
       return;
     }
-
     const list = inv.map((i: any) => `**${i.item_id}** x${i.quantity}`).join('\n');
     await interaction.followUp({ content: `🎒 **Túi đồ:**\n${list}`, ephemeral: true });
     return;
@@ -332,7 +290,6 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
           description: `Số lượng: ${f.quantity}`,
         })))
     );
-
     await interaction.followUp({ components: [select], ephemeral: true });
   }
 }
@@ -354,17 +311,18 @@ export async function handleFeedSelect(interaction: StringSelectMenuInteraction)
   const hungerGain: Record<string, number> = { apple: 10, meat: 25, berry: 5 };
   const gain = hungerGain[itemId] ?? 10;
 
-  await supabase.from('pets').update({
-    hunger: Math.min(100, (pet.hunger ?? 0) + gain),
-    xp: (pet.xp ?? 0) + 5,
-    bond: (pet.bond ?? 0) + 1,
-  }).eq('user_id', userId);
-
-  await supabase.from('inventory').update({ quantity: inv.quantity - 1 }).eq('user_id', userId).eq('item_id', itemId);
+  await Promise.all([
+    supabase.from('pets').update({
+      hunger: Math.min(100, (pet.hunger ?? 0) + gain),
+      xp: (pet.xp ?? 0) + 5,
+      bond: (pet.bond ?? 0) + 1,
+    }).eq('user_id', userId),
+    supabase.from('inventory').update({ quantity: inv.quantity - 1 }).eq('user_id', userId).eq('item_id', itemId),
+  ]);
 
   const profile = await rebuildProfile(userId);
   if (profile) {
     await interaction.update({ embeds: [profile.embed], components: [profile.row] });
   }
-  await interaction.followUp({ content: `🍖 Cho ${(pet as Pet).name} ăn ${itemId}! (+${gain} Hunger, +5 XP, +1 Bond)`, ephemeral: true });
+  await interaction.followUp({ content: `🍖 Cho ${pet.name} ăn ${itemId}! (+${gain} Hunger, +5 XP, +1 Bond)`, ephemeral: true });
 }
