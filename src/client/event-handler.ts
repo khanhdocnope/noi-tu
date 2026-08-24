@@ -2,6 +2,7 @@ import { Events } from 'discord.js';
 import type { BotClient } from './bot.js';
 import * as shopCommand from '../commands/shop.js';
 import * as profileCommand from '../commands/profile.js';
+import * as feedCommand from '../commands/feed.js';
 import * as sellCommand from '../commands/sell.js';
 import * as marketCommand from '../commands/market.js';
 import { handlePrefixMessage } from './prefix-handler.js';
@@ -71,6 +72,11 @@ export function createInteractionCreateEvent() {
 
       if (interaction.isStringSelectMenu() && interaction.customId === 'profile_feed_select') {
         profileCommand.handleFeedSelect(interaction).catch(console.error);
+        return;
+      }
+
+      if (interaction.isStringSelectMenu() && interaction.customId === 'feed_select') {
+        feedCommand.handleFeedSelect(interaction).catch(console.error);
         return;
       }
 
