@@ -9,6 +9,7 @@ import {
 import type { ChatInputCommandInteraction, ButtonInteraction, StringSelectMenuInteraction } from 'discord.js';
 import { getSupabase } from '../database/supabase/client.js';
 import { getArtworkUrl } from '../storage/artwork.service.js';
+import { getRestingInfo } from './rest.js';
 import type { Pet } from '../modules/pet/pet.types.js';
 
 function getProgressBar(current: number, max: number, length: number = 10): string {
@@ -75,8 +76,16 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
+  const restingInfo = await getRestingInfo(pet);
+  if (restingInfo && !restingInfo.isResting && (restingInfo.energyGain > 0 || restingInfo.healthGain > 0)) {
+    await interaction.followUp({
+      content: `😴 ${pet.name} đã thức dậy! +${restingInfo.energyGain} ⚡, +${restingInfo.healthGain} ❤️`,
+    });
+  }
+
+  const { data: updatedPet } = await supabase.from('pets').select('*').eq('user_id', userId).single();
   const { data: user } = await supabase.from('users').select('coin').eq('user_id', userId).single();
-  const p = pet as Pet;
+  const p = (updatedPet ?? pet) as Pet;
   const coin = user?.coin ?? 0;
   const emoji = getEmoji(p.species);
   const artworkUrl = getArtworkUrl(p.species, p.level);
@@ -86,6 +95,17 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const xpForNext = Math.floor(100 * Math.pow(p.level, 1.35));
   const xpPercent = Math.round((p.xp / xpForNext) * 100);
   const xpBar = getProgressBar(p.xp, xpForNext);
+
+  const isResting = (updatedPet ?? pet)?.rest_start != null;
+
+  let statusText = `${getMoodLabel(p.mood ?? 50)}`;
+  if (isResting) {
+    const elapsed = Date.now() - new Date((updatedPet ?? pet).rest_start).getTime();
+    const remaining = Math.max(0, 300000 - elapsed);
+    const minutes = Math.floor(remaining / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    statusText = `😴 Đang nghỉ ngơi (${minutes}p ${seconds}s)`;
+  }
 
   const embed = new EmbedBuilder()
     .setTitle(`${emoji} ${p.name} • Level ${p.level}`)
@@ -103,7 +123,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           `${getStatusIcon(p.health, [30, 70])} ❤️ Máu: **${p.health}/100**`,
           `${getStatusIcon(p.hunger, [30, 70])} 🍖 No: **${p.hunger}/100**`,
           `${getStatusIcon(p.energy, [30, 70])} ⚡ Năng lượng: **${p.energy}/100**`,
-          `${getStatusIcon(p.mood, [30, 50])} 😊 Tâm trạng: **${p.mood}/100** — ${getMoodLabel(p.mood ?? 50)}`,
+          `${getStatusIcon(p.mood, [30, 50])} 😊 Tâm trạng: **${p.mood}/100** — ${statusText}`,
         ].join('\n'),
         inline: false,
       },
@@ -117,21 +137,24 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         inline: false,
       },
     )
-    .setFooter({ text: `💡 Mẹo: Hãy cho ${p.name} ăn để tăng Tâm trạng và Thân thiết!` });
+    .setFooter({ text: isResting ? '😴 Pet đang nghỉ ngơi — không thể săn/chơi!' : `💡 Mẹo: Hãy cho ${p.name} ăn để tăng Tâm trạng và Thân thiết!` });
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId('profile_feed')
       .setLabel('🍖 Cho ăn')
-      .setStyle(ButtonStyle.Success),
+      .setStyle(ButtonStyle.Success)
+      .setDisabled(isResting),
     new ButtonBuilder()
       .setCustomId('profile_play')
       .setLabel('🎮 Chơi đùa')
-      .setStyle(ButtonStyle.Primary),
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(isResting),
     new ButtonBuilder()
       .setCustomId('profile_hunt')
       .setLabel('⚔️ Săn bắn')
-      .setStyle(ButtonStyle.Danger),
+      .setStyle(ButtonStyle.Danger)
+      .setDisabled(isResting),
     new ButtonBuilder()
       .setCustomId('profile_inventory')
       .setLabel('🎒 Túi đồ')
@@ -157,6 +180,17 @@ async function rebuildProfile(userId: string) {
   const xpPercent = Math.round((p.xp / xpForNext) * 100);
   const xpBar = getProgressBar(p.xp, xpForNext);
 
+  const isResting = p.rest_start != null;
+
+  let statusText = `${getMoodLabel(p.mood ?? 50)}`;
+  if (isResting) {
+    const elapsed = Date.now() - new Date(p.rest_start!).getTime();
+    const remaining = Math.max(0, 300000 - elapsed);
+    const minutes = Math.floor(remaining / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    statusText = `😴 Đang nghỉ ngơi (${minutes}p ${seconds}s)`;
+  }
+
   const embed = new EmbedBuilder()
     .setTitle(`${emoji} ${p.name} • Level ${p.level}`)
     .setColor(embedColor)
@@ -173,7 +207,7 @@ async function rebuildProfile(userId: string) {
           `${getStatusIcon(p.health, [30, 70])} ❤️ Máu: **${p.health}/100**`,
           `${getStatusIcon(p.hunger, [30, 70])} 🍖 No: **${p.hunger}/100**`,
           `${getStatusIcon(p.energy, [30, 70])} ⚡ Năng lượng: **${p.energy}/100**`,
-          `${getStatusIcon(p.mood, [30, 50])} 😊 Tâm trạng: **${p.mood}/100** — ${getMoodLabel(p.mood ?? 50)}`,
+          `${getStatusIcon(p.mood, [30, 50])} 😊 Tâm trạng: **${p.mood}/100** — ${statusText}`,
         ].join('\n'),
         inline: false,
       },
@@ -187,12 +221,12 @@ async function rebuildProfile(userId: string) {
         inline: false,
       },
     )
-    .setFooter({ text: `💡 Mẹo: Hãy cho ${p.name} ăn để tăng Tâm trạng và Thân thiết!` });
+    .setFooter({ text: isResting ? '😴 Pet đang nghỉ ngơi — không thể săn/chơi!' : `💡 Mẹo: Hãy cho ${p.name} ăn để tăng Tâm trạng và Thân thiết!` });
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId('profile_feed').setLabel('🍖 Cho ăn').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId('profile_play').setLabel('🎮 Chơi đùa').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('profile_hunt').setLabel('⚔️ Săn bắn').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('profile_feed').setLabel('🍖 Cho ăn').setStyle(ButtonStyle.Success).setDisabled(isResting),
+    new ButtonBuilder().setCustomId('profile_play').setLabel('🎮 Chơi đùa').setStyle(ButtonStyle.Primary).setDisabled(isResting),
+    new ButtonBuilder().setCustomId('profile_hunt').setLabel('⚔️ Săn bắn').setStyle(ButtonStyle.Danger).setDisabled(isResting),
     new ButtonBuilder().setCustomId('profile_inventory').setLabel('🎒 Túi đồ').setStyle(ButtonStyle.Secondary),
   );
 
@@ -207,6 +241,11 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
     await interaction.deferUpdate();
     const { data: pet } = await supabase.from('pets').select('*').eq('user_id', userId).single();
     if (!pet) return;
+
+    if (pet.rest_start) {
+      await interaction.followUp({ content: '❌ Pet đang nghỉ ngơi! Đợi thức dậy.', ephemeral: true });
+      return;
+    }
 
     if ((pet.energy ?? 0) < 15) {
       await interaction.followUp({ content: '❌ Pet quá mệt! Hãy nghỉ ngơi.', ephemeral: true });
@@ -232,6 +271,11 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
     await interaction.deferUpdate();
     const { data: pet } = await supabase.from('pets').select('*').eq('user_id', userId).single();
     if (!pet) return;
+
+    if (pet.rest_start) {
+      await interaction.followUp({ content: '❌ Pet đang nghỉ ngơi! Đợi thức dậy.', ephemeral: true });
+      return;
+    }
 
     if ((pet.energy ?? 0) < 20) {
       await interaction.followUp({ content: '❌ Pet quá mệt! Hãy nghỉ ngơi.', ephemeral: true });

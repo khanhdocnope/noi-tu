@@ -1,40 +1,17 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { getSupabase } from '../database/supabase/client.js';
+import { getCreatureName, getSellPrice } from './hunt.js';
 
-const ITEM_NAMES: Record<string, string> = {
-  apple: '🍎 Táo',
-  meat: '🥩 Thịt',
-  berry: '🫐 Quả mọng',
-  bone: '🦴 Xương',
-  fish: '🐟 Cá',
-  gold_ring: '💍 Nhẫn vàng',
-  silver_coin: '🪙 Bạc',
-  magic_dust: '✨ Bụi phép',
-  feather: '🪶 Lông vũ',
-  crystal: '💎 Pha lê',
+const FOOD_ITEMS: Record<string, { name: string; desc: string }> = {
+  apple: { name: '🍎 Táo', desc: 'Tăng 10 Hunger' },
+  meat: { name: '🥩 Thịt', desc: 'Tăng 25 Hunger' },
+  berry: { name: '🫐 Quả mọng', desc: 'Tăng 5 Hunger' },
+  bone: { name: '🦴 Xương', desc: 'Tăng 10 Bond' },
+  fish: { name: '🐟 Cá', desc: 'Tăng 15 Health' },
 };
 
-const ITEM_DESCRIPTIONS: Record<string, string> = {
-  apple: 'Tăng 10 Hunger',
-  meat: 'Tăng 25 Hunger',
-  berry: 'Tăng 5 Hunger',
-  bone: 'Tăng 10 Bond',
-  fish: 'Tăng 15 Health',
-  gold_ring: 'Bán được 100 coin',
-  silver_coin: 'Bán được 50 coin',
-  magic_dust: 'Tăng 20 XP',
-  feather: 'Tăng 5 Mood',
-  crystal: 'Tăng 10 All Stats',
-};
-
-function getItemName(itemId: string): string {
-  return ITEM_NAMES[itemId] ?? `❓ ${itemId}`;
-}
-
-function getItemDescription(itemId: string): string {
-  return ITEM_DESCRIPTIONS[itemId] ?? 'Không rõ';
-}
+const SELLABLE_ITEMS = ['rabbit', 'squirrel', 'deer', 'boar', 'wolf', 'gold_ring'];
 
 export const data = new SlashCommandBuilder()
   .setName('inventory')
@@ -59,17 +36,44 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
-  const itemList = items.map((item: any) => {
-    const name = getItemName(item.item_id);
-    const desc = getItemDescription(item.item_id);
-    return `${name} x${item.quantity} — ${desc}`;
-  }).join('\n');
+  const foodList: string[] = [];
+  const creatureList: string[] = [];
+
+  for (const item of items) {
+    const qty = item.quantity;
+    if (FOOD_ITEMS[item.item_id]) {
+      const food = FOOD_ITEMS[item.item_id];
+      foodList.push(`${food.name} x${qty} — ${food.desc}`);
+    } else if (SELLABLE_ITEMS.includes(item.item_id)) {
+      const name = getCreatureName(item.item_id);
+      const price = getSellPrice(item.item_id);
+      creatureList.push(`${name} x${qty} — Bán ${price} 🪙/con`);
+    } else {
+      creatureList.push(`❓ ${item.item_id} x${qty}`);
+    }
+  }
 
   const embed = new EmbedBuilder()
     .setTitle('🎒 Túi đồ')
-    .setDescription(itemList)
-    .setColor('#3498DB')
-    .setFooter({ text: `Tổng: ${items.length} loại items` });
+    .setColor('#3498DB');
+
+  if (foodList.length > 0) {
+    embed.addFields({
+      name: '🍖 Đồ ăn / Vật phẩm',
+      value: foodList.join('\n'),
+      inline: false,
+    });
+  }
+
+  if (creatureList.length > 0) {
+    embed.addFields({
+      name: '🐾 Động vật / Có thể bán',
+      value: creatureList.join('\n'),
+      inline: false,
+    });
+  }
+
+  embed.setFooter({ text: 'Dùng /sell để bán động vật lấy coin' });
 
   await interaction.editReply({ embeds: [embed] });
 }

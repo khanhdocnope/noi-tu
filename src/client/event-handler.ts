@@ -2,6 +2,8 @@ import { Events, type ClientEvents } from 'discord.js';
 import type { BotClient } from './bot.js';
 import * as shopCommand from '../commands/shop.js';
 import * as profileCommand from '../commands/profile.js';
+import * as sellCommand from '../commands/sell.js';
+import * as marketCommand from '../commands/market.js';
 
 type EventName = keyof ClientEvents;
 
@@ -76,6 +78,26 @@ export function createInteractionCreateEvent(): Event<Events.InteractionCreate> 
 
       if (interaction.isStringSelectMenu() && interaction.customId === 'profile_feed_select') {
         profileCommand.handleFeedSelect(interaction).catch(console.error);
+        return;
+      }
+
+      if (interaction.isStringSelectMenu() && interaction.customId === 'sell_select') {
+        sellCommand.handleSelect(interaction).catch(console.error);
+        return;
+      }
+
+      if (interaction.isStringSelectMenu() && interaction.customId === 'market_select_item') {
+        marketCommand.handleSelectItem(interaction).catch(console.error);
+        return;
+      }
+
+      if (interaction.isModalSubmit() && interaction.customId.startsWith('market_modal_')) {
+        marketCommand.handleModal(interaction).catch(console.error);
+        return;
+      }
+
+      if (interaction.isStringSelectMenu() && interaction.customId === 'market_buy_select') {
+        marketCommand.handleBuySelect(interaction).catch(console.error);
         return;
       }
     },

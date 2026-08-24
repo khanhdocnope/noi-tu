@@ -42,15 +42,17 @@ HF_REPO=dobietdc/bot-artwork
 
 ### Supabase Setup
 
-Tạo SQL trên Supabase Dashboard → SQL Editor:
+Tạo SQL trên Supabase Dashboard → SQL Editor (copy toàn bộ chạy 1 lần):
 
 ```sql
+-- Users
 CREATE TABLE users (
   user_id TEXT PRIMARY KEY,
   coin INTEGER DEFAULT 100,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Pets
 CREATE TABLE pets (
   user_id TEXT PRIMARY KEY,
   species TEXT NOT NULL,
@@ -66,6 +68,7 @@ CREATE TABLE pets (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Species
 CREATE TABLE species (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -75,9 +78,75 @@ CREATE TABLE species (
   base_stats JSONB DEFAULT '{"health": 100, "hunger": 100, "energy": 100, "mood": 50}'
 );
 
+-- Inventory
+CREATE TABLE inventory (
+  id SERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  quantity INTEGER DEFAULT 1,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, item_id)
+);
+
+-- Hunt Encounters
+CREATE TABLE hunt_encounters (
+  encounter_id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  area_id TEXT NOT NULL,
+  min_level INTEGER DEFAULT 1,
+  weight INTEGER DEFAULT 50,
+  coin_min INTEGER DEFAULT 10,
+  coin_max INTEGER DEFAULT 30,
+  xp_min INTEGER DEFAULT 5,
+  xp_max INTEGER DEFAULT 15,
+  drops JSONB DEFAULT '{}',
+  text TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Shop Items
+CREATE TABLE shop_items (
+  item_id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  price INTEGER NOT NULL,
+  category TEXT DEFAULT 'food',
+  effect JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Daily Claims
+CREATE TABLE daily_claims (
+  id SERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  claimed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Disable RLS cho tất cả
 ALTER TABLE users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE pets DISABLE ROW LEVEL SECURITY;
 ALTER TABLE species DISABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory DISABLE ROW LEVEL SECURITY;
+ALTER TABLE hunt_encounters DISABLE ROW LEVEL SECURITY;
+ALTER TABLE shop_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_claims DISABLE ROW LEVEL SECURITY;
+
+-- Seed hunt encounters
+INSERT INTO hunt_encounters (encounter_id, name, area_id, min_level, weight, coin_min, coin_max, xp_min, xp_max, drops, text) VALUES
+('rabbit', '🐰 Thỏ rừng', 'misty_forest', 1, 50, 10, 30, 5, 15, '{"apple": 1}', 'Bạn tìm thấy một con thỏ nhỏ đang ăn cỏ!'),
+('squirrel', '🐿️ Sóc nhỏ', 'misty_forest', 1, 40, 5, 20, 3, 10, '{"berry": 1}', 'Một con sóc nhảy từ cành này sang cành khác!'),
+('deer', '🦌 Hươu con', 'misty_forest', 2, 30, 20, 50, 10, 25, '{"meat": 1}', 'Bạn phát hiện một con hươu con bên bờ suối!'),
+('boar', '🐗 Lợn lòi', 'misty_forest', 3, 20, 30, 80, 15, 40, '{"meat": 2}', 'Một con lợn lòi hung dữ đang tìm thức ăn!'),
+('wolf', '🐺 Sói xám', 'misty_forest', 5, 10, 50, 120, 25, 60, '{"meat": 3}', 'Bạn nghe thấy tiếng hú của đàn sói...'),
+('treasure', '💰 Kho báu', 'misty_forest', 1, 5, 100, 200, 50, 100, '{}', 'Bạn tìm thấy một chiếc hộp gỗ cũ kỹ!');
+
+-- Seed shop items
+INSERT INTO shop_items (item_id, name, description, price, category, effect) VALUES
+('apple', '🍎 Táo', 'Tăng 10 Hunger', 10, 'food', '{"hunger": 10}'),
+('meat', '🥩 Thịt', 'Tăng 25 Hunger', 25, 'food', '{"hunger": 25}'),
+('berry', '🫐 Quả mọng', 'Tăng 5 Hunger', 5, 'food', '{"hunger": 5}'),
+('bone', '🦴 Xương', 'Tăng 10 Bond', 30, 'toy', '{"bond": 10}'),
+('fish', '🐟 Cá', 'Tăng 15 Health', 20, 'food', '{"health": 15}');
 ```
 
 ## Chạy
@@ -86,14 +155,9 @@ ALTER TABLE species DISABLE ROW LEVEL SECURITY;
 # Chạy bot
 npm run dev
 
-# Chạy web admin
-npm run dev:web
-
-# Chạy cả hai
-npm run dev:all
+# Web admin
+http://localhost:3000/login
 ```
-
-Web admin: http://localhost:3000
 
 ## Commands
 
@@ -101,20 +165,20 @@ Web admin: http://localhost:3000
 |---------|-------|
 | `/start` | Random nhận pet |
 | `/profile` | Xem profile pet với stats, progress bar, action buttons |
+| `/inventory` | Xem túi đồ |
 | `/feed` | Cho pet ăn |
 | `/play` | Chơi với pet |
 | `/rest` | Pet nghỉ ngơi |
 | `/hunt` | Pet đi săn |
 | `/daily` | Nhận daily reward |
 | `/shop` | Mua items (Select Menu + Modal) |
-| `/buy` | Mua items (fallback) |
 
-## Web Admin
+## Profile Buttons
 
-- **Pets** - Xem & quản lý tất cả pet
-- **Species** - CRUD species
-- **Users** - Xem users & transactions
-- **Artwork** - Upload ảnh lên Hugging Face
+- **🍖 Cho ăn** — Select Menu chọn đồ ăn trong túi
+- **🎮 Chơi đùa** — +15 XP, +1 Bond, +10 Mood, -15 Energy
+- **⚔️ Săn bắn** — +20 XP, random coin, -20 Energy
+- **🎒 Túi đồ** — Xem items
 
 ## Rarity System
 
@@ -125,6 +189,18 @@ Web admin: http://localhost:3000
 | Rare | Blue | #3498DB |
 | Epic | Purple | #9B59B6 |
 | Legendary | Gold | #F1C40F |
+
+## Database Tables
+
+| Table | Mô tả |
+|-------|-------|
+| `users` | User info, coin |
+| `pets` | Pet stats, level, XP |
+| `species` | Loài vật, rarity, base stats |
+| `inventory` | Túi đồ user |
+| `hunt_encounters` | Con mồi theo area/level |
+| `shop_items` | Items bán trong shop |
+| `daily_claims` | Lịch sử nhận daily |
 
 ## Cấu trúc
 
@@ -137,26 +213,12 @@ src/
 ├── database/supabase/    # Supabase client
 ├── storage/              # Artwork service (HF)
 ├── web/                  # Web admin
-├── data/                 # Game data
-├── utils/                # Utilities
 └── config/               # Env config
 ```
 
 ## Artwork
 
 Ảnh pet được lưu trên [Hugging Face Datasets](https://huggingface.co/datasets/dobietdc/bot-artwork).
-
-Cấu trúc:
-```
-bot-artwork/
-├── fox/
-│   ├── lv01.png
-│   ├── lv05.png
-│   └── ...
-├── cat/
-│   └── ...
-└── ...
-```
 
 Upload trực tiếp từ Web Admin tab **Artwork**.
 

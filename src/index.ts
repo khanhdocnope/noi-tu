@@ -13,6 +13,8 @@ import * as huntCommand from './commands/hunt.js';
 import * as shopCommand from './commands/shop.js';
 import * as buyCommand from './commands/buy.js';
 import * as inventoryCommand from './commands/inventory.js';
+import * as sellCommand from './commands/sell.js';
+import * as marketCommand from './commands/market.js';
 import { cookieParser } from './web/cookie-parser.js';
 import { authMiddleware, handleLogin, handleLoginPage } from './web/auth.js';
 import { petsRouter } from './web/routes/pets.js';
@@ -60,7 +62,7 @@ async function main(): Promise<void> {
 
   const client = await startBot();
 
-  loadCommands(client, [startCommand, profileCommand, dailyCommand, feedCommand, playCommand, restCommand, huntCommand, shopCommand, buyCommand, inventoryCommand]);
+  loadCommands(client, [startCommand, profileCommand, dailyCommand, feedCommand, playCommand, restCommand, huntCommand, shopCommand, buyCommand, inventoryCommand, sellCommand, marketCommand]);
 
   loadEvents(client, [createReadyEvent(), createInteractionCreateEvent()]);
 
