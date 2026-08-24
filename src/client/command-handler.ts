@@ -1,17 +1,11 @@
-import { REST, Routes, type ChatInputCommandInteraction } from 'discord.js';
+import { REST, Routes, type ChatInputCommandInteraction, type SlashCommandBuilder } from 'discord.js';
 import { env } from '../config/env.js';
 import type { BotClient } from './bot.js';
 
 export interface Command {
   data: {
     name: string;
-    description: string;
-    options?: Array<{
-      name: string;
-      description: string;
-      type: number;
-      required?: boolean;
-    }>;
+    toJSON(): any;
   };
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
 }

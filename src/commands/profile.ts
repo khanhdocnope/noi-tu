@@ -109,7 +109,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   const embed = new EmbedBuilder()
     .setTitle(`${emoji} ${p.name} • Level ${p.level}`)
-    .setColor(embedColor)
+    .setColor(embedColor as any)
     .setImage(artworkUrl)
     .addFields(
       {
@@ -193,7 +193,7 @@ async function rebuildProfile(userId: string) {
 
   const embed = new EmbedBuilder()
     .setTitle(`${emoji} ${p.name} • Level ${p.level}`)
-    .setColor(embedColor)
+    .setColor(embedColor as any)
     .setImage(artworkUrl)
     .addFields(
       {

@@ -117,7 +117,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       { name: 'Rarity', value: rarityMap[species.rarity] ?? 'Common', inline: true },
     )
     .setImage(artworkUrl)
-    .setColor(rarityColors[species.rarity] ?? '#99AAB5');
+    .setColor((rarityColors[species.rarity] ?? '#99AAB5') as any);
 
   await interaction.editReply({ embeds: [embed] });
 }

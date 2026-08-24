@@ -26,10 +26,11 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   }
 
   if (req.path.startsWith('/api/')) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
   }
 
-  return res.redirect('/login');
+  res.redirect('/login');
 }
 
 export function handleLogin(req: Request, res: Response): void {

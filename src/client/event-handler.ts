@@ -1,51 +1,43 @@
-import { Events, type ClientEvents } from 'discord.js';
+import { Events } from 'discord.js';
 import type { BotClient } from './bot.js';
 import * as shopCommand from '../commands/shop.js';
 import * as profileCommand from '../commands/profile.js';
 import * as sellCommand from '../commands/sell.js';
 import * as marketCommand from '../commands/market.js';
 
-type EventName = keyof ClientEvents;
-
-interface Event<K extends EventName = EventName> {
-  name: K;
-  once?: boolean;
-  execute: (...args: ClientEvents[K]) => Promise<void> | void;
-}
-
-export function loadEvents(client: BotClient, events: Event[]): void {
+export function loadEvents(client: BotClient, events: Array<{ name: string; once?: boolean; execute: (...args: any[]) => any }>): void {
   for (const event of events) {
     const handler = (...args: unknown[]) => {
-      const result = (event.execute as (...a: unknown[]) => Promise<void> | void)(...args);
+      const result = event.execute(...args);
       if (result && typeof result.catch === 'function') {
         result.catch(console.error);
       }
     };
 
     if (event.once) {
-      client.once(event.name, handler);
+      client.once(event.name as any, handler);
     } else {
-      client.on(event.name, handler);
+      client.on(event.name as any, handler);
     }
   }
 
   console.log(`📡 Loaded ${events.length} events`);
 }
 
-export function createReadyEvent(): Event<Events.ClientReady> {
+export function createReadyEvent() {
   return {
     name: Events.ClientReady,
     once: true,
-    execute(client) {
+    execute(client: any) {
       console.log(`✅ Ready! Logged in as ${client.user?.tag}`);
     },
   };
 }
 
-export function createInteractionCreateEvent(): Event<Events.InteractionCreate> {
+export function createInteractionCreateEvent() {
   return {
     name: Events.InteractionCreate,
-    execute(interaction) {
+    execute(interaction: any) {
       if (interaction.isChatInputCommand()) {
         const command = (interaction.client as BotClient).commands.get(interaction.commandName);
         if (!command) {
@@ -93,11 +85,6 @@ export function createInteractionCreateEvent(): Event<Events.InteractionCreate> 
 
       if (interaction.isModalSubmit() && interaction.customId.startsWith('market_modal_')) {
         marketCommand.handleModal(interaction).catch(console.error);
-        return;
-      }
-
-      if (interaction.isStringSelectMenu() && interaction.customId === 'market_buy_select') {
-        marketCommand.handleBuySelect(interaction).catch(console.error);
         return;
       }
     },

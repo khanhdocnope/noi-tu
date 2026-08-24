@@ -41,8 +41,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   for (const item of items) {
     const qty = item.quantity;
-    if (FOOD_ITEMS[item.item_id]) {
-      const food = FOOD_ITEMS[item.item_id];
+    const food = FOOD_ITEMS[item.item_id];
+    if (food) {
       foodList.push(`${food.name} x${qty} — ${food.desc}`);
     } else if (SELLABLE_ITEMS.includes(item.item_id)) {
       const name = getCreatureName(item.item_id);

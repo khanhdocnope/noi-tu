@@ -9,6 +9,8 @@ export interface Pet {
   energy: number;
   mood: number;
   bond: number;
+  rest_start?: string | null;
+  rest_duration?: number;
   created_at: string;
   updated_at: string;
 }

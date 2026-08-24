@@ -23,6 +23,7 @@ import { usersRouter } from './web/routes/users.js';
 import { uploadRouter } from './web/routes/upload.js';
 
 const app = express();
+const WEB_DIR = path.join(process.cwd(), 'dist', 'web', 'public');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -39,7 +40,7 @@ app.get('/health', (_req, res) => {
 app.get('/login', handleLoginPage);
 app.post('/login', handleLogin);
 
-app.use('/admin', authMiddleware, express.static(path.join(import.meta.dirname, 'web', 'public')));
+app.use('/admin', authMiddleware, express.static(WEB_DIR));
 app.use('/api', authMiddleware);
 
 app.use('/api/pets', petsRouter);
@@ -48,7 +49,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/upload', uploadRouter);
 
 app.get('/admin', authMiddleware, (_req, res) => {
-  res.sendFile(path.join(import.meta.dirname, 'web', 'public', 'index.html'));
+  res.sendFile(path.join(WEB_DIR, 'index.html'));
 });
 
 const PORT = parseInt(process.env['PORT'] ?? '3000', 10);

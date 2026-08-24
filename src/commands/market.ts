@@ -3,6 +3,8 @@ import {
   EmbedBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
+  TextInputBuilder,
+  TextInputStyle,
   PermissionFlagsBits,
 } from 'discord.js';
 import type { ChatInputCommandInteraction, StringSelectMenuInteraction } from 'discord.js';
@@ -151,7 +153,7 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
 }
 
 export async function handleSelectItem(interaction: StringSelectMenuInteraction): Promise<void> {
-  const { ModalBuilder, TextInputBuilder, TextInputStyle } = await import('discord.js');
+  const { ModalBuilder } = await import('discord.js');
 
   const modal = new ModalBuilder()
     .setCustomId(`market_modal_${interaction.values[0]}`)
@@ -176,8 +178,8 @@ export async function handleSelectItem(interaction: StringSelectMenuInteraction)
     .setRequired(true);
 
   modal.addComponents(
-    new ActionRowBuilder().addComponents(quantityInput),
-    new ActionRowBuilder().addComponents(priceInput)
+    new ActionRowBuilder<TextInputBuilder>().addComponents(quantityInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(priceInput)
   );
 
   await interaction.showModal(modal);
@@ -315,7 +317,13 @@ async function handleView(interaction: ChatInputCommandInteraction): Promise<voi
 export async function handleBuySelect(interaction: StringSelectMenuInteraction): Promise<void> {
   const supabase = getSupabase();
   const userId = interaction.user.id;
-  const listingId = parseInt(interaction.values[0], 10);
+  const value = interaction.values[0];
+  if (!value) {
+    await interaction.deferUpdate();
+    await interaction.editReply({ content: '❌ Lỗi: Không chọn được vật phẩm!', embeds: [], components: [] });
+    return;
+  }
+  const listingId = parseInt(value, 10);
 
   await interaction.deferUpdate();
 
