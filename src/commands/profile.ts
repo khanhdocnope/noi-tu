@@ -16,7 +16,7 @@ const ENERGY_PER_SECOND = 30 / 300;
 const HEALTH_PER_SECOND = 10 / 300;
 
 function getProgressBar(current: number, max: number, length: number = 10): string {
-  const filled = Math.round((current / max) * length);
+  const filled = Math.min(length, Math.max(0, Math.round((current / Math.max(1, max)) * length)));
   return '🟩'.repeat(filled) + '⬜'.repeat(length - filled);
 }
 
