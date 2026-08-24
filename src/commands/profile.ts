@@ -14,6 +14,8 @@ import type { Pet } from '../modules/pet/pet.types.js';
 const REST_DURATION_MS = 5 * 60 * 1000;
 const ENERGY_PER_SECOND = 30 / 300;
 const HEALTH_PER_SECOND = 10 / 300;
+const HUNGER_DECAY_PER_HOUR = 8;
+const MOOD_DECAY_PER_HOUR = 5;
 
 function getProgressBar(current: number, max: number, length: number = 10): string {
   const filled = Math.min(length, Math.max(0, Math.round((current / Math.max(1, max)) * length)));
@@ -61,6 +63,30 @@ function computeRest(pet: any): { isResting: boolean; timeRemaining: number } {
   return { isResting: true, timeRemaining: REST_DURATION_MS - elapsed };
 }
 
+function computeDecay(pet: any): { hunger: number; mood: number; health: number } {
+  const lastUpdate = new Date(pet.updated_at ?? pet.created_at).getTime();
+  const hoursElapsed = Math.max(0, (Date.now() - lastUpdate) / (1000 * 60 * 60));
+  const hunger = Math.max(0, Math.round((pet.hunger ?? 50) - hoursElapsed * HUNGER_DECAY_PER_HOUR));
+  const mood = Math.max(0, Math.round((pet.mood ?? 50) - hoursElapsed * MOOD_DECAY_PER_HOUR));
+  const health = hunger <= 0 ? Math.max(0, Math.round((pet.health ?? 100) - hoursElapsed * 3)) : (pet.health ?? 100);
+  return { hunger, mood, health };
+}
+
+async function applyDecayIfNeeded(pet: any): Promise<void> {
+  const lastUpdate = new Date(pet.updated_at ?? pet.created_at).getTime();
+  const hoursElapsed = (Date.now() - lastUpdate) / (1000 * 60 * 60);
+  if (hoursElapsed < 0.5) return;
+
+  const decay = computeDecay(pet);
+  const supabase = getSupabase();
+  await supabase.from('pets').update({
+    hunger: decay.hunger,
+    mood: decay.mood,
+    health: decay.health,
+    updated_at: new Date().toISOString(),
+  }).eq('user_id', pet.user_id);
+}
+
 async function finishRestIfDone(pet: any): Promise<boolean> {
   if (!pet.rest_start) return false;
   const elapsed = Date.now() - new Date(pet.rest_start).getTime();
@@ -103,7 +129,17 @@ async function fetchPetData(userId: string) {
     withTimeout(toPromise(supabase.from('users').select('coin').eq('user_id', userId).single()), 5000),
   ]);
   console.log(`[Profile] Pet: ${petResult.data ? 'found' : 'null'}, User: ${userResult.data ? 'found' : 'null'}`);
-  return { pet: petResult.data, user: userResult.data };
+
+  const pet = petResult.data;
+  if (pet) {
+    const decay = computeDecay(pet);
+    pet.hunger = decay.hunger;
+    pet.mood = decay.mood;
+    pet.health = decay.health;
+    applyDecayIfNeeded(pet);
+  }
+
+  return { pet, user: userResult.data };
 }
 
 async function buildProfile(userId: string) {
