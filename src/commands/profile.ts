@@ -82,12 +82,27 @@ async function finishRestIfDone(pet: any): Promise<boolean> {
   return true;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms)),
+  ]);
+}
+
+function toPromise<T>(thenable: { then: (resolve: (v: T) => void, reject: (e: any) => void) => any }): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    thenable.then(resolve, reject);
+  });
+}
+
 async function fetchPetData(userId: string) {
   const supabase = getSupabase();
+  console.log(`[Profile] Fetching data for ${userId}`);
   const [petResult, userResult] = await Promise.all([
-    supabase.from('pets').select('*').eq('user_id', userId).single(),
-    supabase.from('users').select('coin').eq('user_id', userId).single(),
+    withTimeout(toPromise(supabase.from('pets').select('*').eq('user_id', userId).single()), 5000),
+    withTimeout(toPromise(supabase.from('users').select('coin').eq('user_id', userId).single()), 5000),
   ]);
+  console.log(`[Profile] Pet: ${petResult.data ? 'found' : 'null'}, User: ${userResult.data ? 'found' : 'null'}`);
   return { pet: petResult.data, user: userResult.data };
 }
 
@@ -97,7 +112,10 @@ async function buildProfile(userId: string) {
 
   const p = pet as Pet;
   const supabase = getSupabase();
-  const { data: speciesData } = await supabase.from('species').select('rarity').eq('id', p.species).single();
+  const { data: speciesData } = await withTimeout(
+    toPromise(supabase.from('species').select('rarity').eq('id', p.species).single()),
+    5000
+  );
   const rarity = speciesData?.rarity ?? 'common';
 
   return buildProfileFromData(p, user?.coin ?? 0, rarity);
@@ -167,28 +185,34 @@ export const data = new SlashCommandBuilder()
   .setDescription('Xem profile pet của bạn');
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  console.log(`[Profile] Execute called by ${interaction.user.id}`);
   await interaction.deferReply();
   const userId = interaction.user.id;
 
-  const { pet } = await fetchPetData(userId);
-  if (!pet) {
-    await interaction.editReply({ content: '❌ Bạn chưa có pet! Dùng `/start`.' });
-    return;
-  }
+  try {
+    const { pet } = await fetchPetData(userId);
+    if (!pet) {
+      await interaction.editReply({ content: '❌ Bạn chưa có pet! Dùng `/start`.' });
+      return;
+    }
 
-  const rested = await finishRestIfDone(pet);
-  const profile = await buildProfile(userId);
-  if (!profile) {
-    await interaction.editReply({ content: '❌ Lỗi load profile!' });
-    return;
-  }
+    const rested = await finishRestIfDone(pet);
+    const profile = await buildProfile(userId);
+    if (!profile) {
+      await interaction.editReply({ content: '❌ Lỗi load profile!' });
+      return;
+    }
 
-  await interaction.editReply({ embeds: [profile.embed], components: [profile.row] });
+    await interaction.editReply({ embeds: [profile.embed], components: [profile.row] });
 
-  if (rested) {
-    await interaction.followUp({
-      content: `😴 ${pet.name} đã thức dậy! +30 ⚡, +10 ❤️`,
-    });
+    if (rested) {
+      await interaction.followUp({
+        content: `😴 ${pet.name} đã thức dậy! +30 ⚡, +10 ❤️`,
+      });
+    }
+  } catch (error) {
+    console.error('Profile error:', error);
+    await interaction.editReply({ content: '❌ Có lỗi xảy ra! Thử lại sau.' }).catch(() => {});
   }
 }
 

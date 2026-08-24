@@ -5,7 +5,12 @@ let client: SupabaseClient | null = null;
 
 export function getSupabase(): SupabaseClient {
   if (!client) {
-    client = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
+    client = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+      db: { schema: 'public' },
+      global: {
+        headers: { 'x-my-custom-header': 'nuoi-mot-thu' },
+      },
+    });
   }
   return client;
 }
